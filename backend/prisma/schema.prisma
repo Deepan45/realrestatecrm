@@ -1,0 +1,446 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  SALES_MANAGER
+  SALES_EXECUTIVE
+  PROPERTY_STAFF
+  PARTNER_USER
+}
+
+enum LeadSource {
+  VISA_FORM
+  WEBSITE_FORM
+  MANUAL
+  REFERRAL
+  WHATSAPP
+  IMPORT
+  PARTNER
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  PROPERTY_SHARED
+  FOLLOW_UP
+  INTERESTED
+  NEGOTIATION
+  SHARED_TO_PARTNER
+  CONVERTED
+  CLOSED_LOST
+  INVALID
+}
+
+enum PipelineStage {
+  NEW_LEAD
+  INITIAL_CONTACT
+  REQUIREMENT_ANALYSIS
+  PROPERTY_MATCHING
+  PROPERTY_SHARED
+  FOLLOW_UP_PENDING
+  INTERESTED_SITE_VISIT
+  NEGOTIATION
+  SHARED_TO_PARTNER
+  CONVERTED
+  LOST_CLOSED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum PropertyType {
+  APARTMENT
+  VILLA
+  TOWNHOUSE
+  PENTHOUSE
+  STUDIO
+  PLOT
+  OFFICE
+  RETAIL
+  WAREHOUSE
+  OTHER
+}
+
+enum PropertyCategory {
+  SALE
+  RENT
+  LEASE
+  COMMERCIAL
+  RESIDENTIAL
+}
+
+enum FurnishingStatus {
+  FURNISHED
+  SEMI_FURNISHED
+  UNFURNISHED
+}
+
+enum AvailabilityStatus {
+  AVAILABLE
+  BOOKED
+  SOLD
+  RENTED
+  INACTIVE
+}
+
+enum PartnerCompanyStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PartnerShareStatus {
+  SHARED
+  ACCEPTED
+  IN_PROGRESS
+  CLIENT_CONTACTED
+  PROPERTY_SENT
+  CONVERTED
+  REJECTED
+  CLOSED
+}
+
+enum MessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum ActivityType {
+  LEAD_CREATED
+  LEAD_UPDATED
+  STAGE_CHANGED
+  STATUS_CHANGED
+  ASSIGNED
+  NOTE_ADDED
+  WHATSAPP_SENT
+  PROPERTY_MATCHED
+  SHARED_TO_PARTNER
+  PARTNER_STATUS_UPDATED
+  FOLLOW_UP_SET
+}
+
+enum NotificationType {
+  LEAD_ASSIGNED
+  FOLLOW_UP_DUE
+  PROPERTY_SENT
+  LEAD_SHARED_TO_PARTNER
+  PARTNER_STATUS_UPDATED
+  PROPERTY_AVAILABILITY_CHANGED
+  GENERAL
+}
+
+// ─── Users & Auth ───────────────────────────────────────────────────
+
+model User {
+  id               String          @id @default(cuid())
+  name             String
+  email            String          @unique
+  passwordHash     String
+  role             Role            @default(SALES_EXECUTIVE)
+  phone            String?
+  isActive         Boolean         @default(true)
+  partnerCompany   PartnerCompany? @relation(fields: [partnerCompanyId], references: [id])
+  partnerCompanyId String?
+  resetToken       String?         @unique
+  resetTokenExpiry DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  assignedLeads      Lead[]             @relation("AssignedLeads")
+  createdLeads       Lead[]             @relation("CreatedLeads")
+  notes              LeadNote[]
+  activities         LeadActivity[]
+  pipelineChanges    PipelineHistory[]
+  properties         Property[]
+  whatsappLogs       WhatsAppLog[]
+  partnerShares      PartnerLeadShare[]
+  notifications      Notification[]
+  auditLogs          AuditLog[]
+  shortlists         PropertyMatch[]
+
+  @@index([role])
+  @@index([partnerCompanyId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    String?
+  action    String
+  entity    String
+  entityId  String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([userId])
+}
+
+// ─── Leads ──────────────────────────────────────────────────────────
+
+model Lead {
+  id               String          @id @default(cuid())
+  fullName         String
+  mobile           String
+  whatsappNumber   String?
+  email            String?
+  country          String?
+  city             String?
+  preferredArea    String?
+  budgetMin        Decimal?        @db.Decimal(14, 2)
+  budgetMax        Decimal?        @db.Decimal(14, 2)
+  currency         String          @default("AED")
+  propertyType     PropertyType?
+  bedrooms         Int?
+  visaType         String?
+  visaRequired     Boolean         @default(false)
+  source           LeadSource      @default(MANUAL)
+  status           LeadStatus      @default(NEW)
+  stage            PipelineStage   @default(NEW_LEAD)
+  priority         Priority        @default(MEDIUM)
+  requirementNotes String?
+  assignedTo       User?           @relation("AssignedLeads", fields: [assignedToId], references: [id])
+  assignedToId     String?
+  createdBy        User?           @relation("CreatedLeads", fields: [createdById], references: [id])
+  createdById      String?
+  partnerCompany   PartnerCompany? @relation(fields: [partnerCompanyId], references: [id])
+  partnerCompanyId String?
+  followUpAt       DateTime?
+  convertedAt      DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  notes           LeadNote[]
+  activities      LeadActivity[]
+  pipelineHistory PipelineHistory[]
+  matches         PropertyMatch[]
+  whatsappLogs    WhatsAppLog[]
+  partnerShares   PartnerLeadShare[]
+
+  @@index([source])
+  @@index([status])
+  @@index([stage])
+  @@index([assignedToId])
+  @@index([partnerCompanyId])
+  @@index([followUpAt])
+  @@index([createdAt])
+}
+
+model LeadNote {
+  id        String   @id @default(cuid())
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId    String
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  String
+  body      String
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+}
+
+model LeadActivity {
+  id        String       @id @default(cuid())
+  lead      Lead         @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId    String
+  actor     User?        @relation(fields: [actorId], references: [id])
+  actorId   String?
+  type      ActivityType
+  message   String
+  meta      Json?
+  createdAt DateTime     @default(now())
+
+  @@index([leadId, createdAt])
+}
+
+model PipelineHistory {
+  id          String        @id @default(cuid())
+  lead        Lead          @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId      String
+  fromStage   PipelineStage?
+  toStage     PipelineStage
+  changedBy   User?         @relation(fields: [changedById], references: [id])
+  changedById String?
+  createdAt   DateTime      @default(now())
+
+  @@index([leadId])
+}
+
+// ─── Properties ─────────────────────────────────────────────────────
+
+model Property {
+  id           String             @id @default(cuid())
+  title        String
+  type         PropertyType
+  category     PropertyCategory
+  location     String
+  address      String?
+  areaSqft     Int?
+  bedrooms     Int?
+  bathrooms    Int?
+  furnishing   FurnishingStatus?
+  amenities    String[]           @default([])
+  price        Decimal            @db.Decimal(14, 2)
+  currency     String             @default("AED")
+  description  String?
+  videoUrl     String?
+  status       AvailabilityStatus @default(AVAILABLE)
+  ownerName    String?
+  contactName  String?
+  contactPhone String?
+  assignedTo   User?              @relation(fields: [assignedToId], references: [id])
+  assignedToId String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  images       PropertyImage[]
+  matches      PropertyMatch[]
+
+  @@index([type])
+  @@index([category])
+  @@index([status])
+  @@index([location])
+  @@index([price])
+}
+
+model PropertyImage {
+  id         String   @id @default(cuid())
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  propertyId String
+  url        String
+  isPrimary  Boolean  @default(false)
+  sortOrder  Int      @default(0)
+
+  @@index([propertyId])
+}
+
+// Shortlisted / matched properties saved against a lead
+model PropertyMatch {
+  id          String   @id @default(cuid())
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId      String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  propertyId  String
+  score       Int      @default(0)
+  savedBy     User?    @relation(fields: [savedById], references: [id])
+  savedById   String?
+  sharedViaWhatsApp Boolean @default(false)
+  createdAt   DateTime @default(now())
+
+  @@unique([leadId, propertyId])
+  @@index([leadId])
+}
+
+// ─── WhatsApp ───────────────────────────────────────────────────────
+
+model WhatsAppTemplate {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  name      String
+  body      String   // supports {{placeholders}}
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  logs WhatsAppLog[]
+}
+
+model WhatsAppLog {
+  id                String            @id @default(cuid())
+  lead              Lead              @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId            String
+  toNumber          String
+  template          WhatsAppTemplate? @relation(fields: [templateId], references: [id])
+  templateId        String?
+  body              String
+  propertyIds       String[]          @default([])
+  sentBy            User              @relation(fields: [sentById], references: [id])
+  sentById          String
+  status            MessageStatus     @default(QUEUED)
+  providerMessageId String?
+  error             String?
+  createdAt         DateTime          @default(now())
+
+  @@index([leadId])
+  @@index([sentById])
+  @@index([createdAt])
+}
+
+// ─── Partners ───────────────────────────────────────────────────────
+
+model PartnerCompany {
+  id            String               @id @default(cuid())
+  name          String
+  contactPerson String?
+  phone         String?
+  whatsapp      String?
+  email         String?
+  city          String?
+  country       String?
+  status        PartnerCompanyStatus @default(ACTIVE)
+  notes         String?
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  users  User[]
+  leads  Lead[]
+  shares PartnerLeadShare[]
+
+  @@index([status])
+}
+
+model PartnerLeadShare {
+  id             String             @id @default(cuid())
+  lead           Lead               @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  leadId         String
+  partner        PartnerCompany     @relation(fields: [partnerId], references: [id])
+  partnerId      String
+  sharedBy       User               @relation(fields: [sharedById], references: [id])
+  sharedById     String
+  notesShared    String?
+  status         PartnerShareStatus @default(SHARED)
+  conversionNote String?
+  commissionNote String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([leadId])
+  @@index([partnerId])
+  @@index([status])
+}
+
+// ─── Notifications & Settings ───────────────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId    String
+  type      NotificationType @default(GENERAL)
+  title     String
+  body      String?
+  isRead    Boolean          @default(false)
+  meta      Json?
+  createdAt DateTime         @default(now())
+
+  @@index([userId, isRead])
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}

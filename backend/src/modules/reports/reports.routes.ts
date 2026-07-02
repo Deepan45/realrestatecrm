@@ -1,0 +1,190 @@
+import { Router } from "express";
+import { LeadStatus, Prisma, Role } from "@prisma/client";
+import { prisma } from "../../lib/prisma";
+import { requireAuth, requireRole } from "../../middleware/auth";
+
+const router = Router();
+router.use(requireAuth);
+
+function dateRange(req: { query: Record<string, unknown> }): Prisma.LeadWhereInput {
+  const { from, to } = req.query as Record<string, string>;
+  if (!from && !to) return {};
+  return {
+    createdAt: {
+      ...(from ? { gte: new Date(from) } : {}),
+      ...(to ? { lte: new Date(to) } : {}),
+    },
+  };
+}
+
+// ── Dashboard widgets ────────────────────────────────────────────────
+router.get("/dashboard", async (req, res, next) => {
+  try {
+    const user = req.user!;
+    const isManager = user.role === Role.SUPER_ADMIN || user.role === Role.SALES_MANAGER;
+    const mine: Prisma.LeadWhereInput = isManager
+      ? {}
+      : user.role === Role.PARTNER_USER
+        ? { partnerShares: { some: { partnerId: user.partnerCompanyId ?? "__none__" } } }
+        : { assignedToId: user.id };
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const [
+      totalLeads, newToday, bySource, byStage, byStaff, propertiesAvailable,
+      sharedToday, waSentToday, partnerSharedCount, converted, followUpsDue,
+    ] = await Promise.all([
+      prisma.lead.count({ where: mine }),
+      prisma.lead.count({ where: { ...mine, createdAt: { gte: startOfDay } } }),
+      prisma.lead.groupBy({ by: ["source"], where: mine, _count: true }),
+      prisma.lead.groupBy({ by: ["stage"], where: mine, _count: true }),
+      isManager
+        ? prisma.lead.groupBy({ by: ["assignedToId"], where: { assignedToId: { not: null } }, _count: true })
+        : Promise.resolve([]),
+      prisma.property.count({ where: { status: "AVAILABLE" } }),
+      prisma.whatsAppLog.count({
+        where: { createdAt: { gte: startOfDay }, propertyIds: { isEmpty: false } },
+      }),
+      prisma.whatsAppLog.count({ where: { createdAt: { gte: startOfDay } } }),
+      prisma.partnerLeadShare.count(),
+      prisma.lead.count({ where: { ...mine, status: LeadStatus.CONVERTED } }),
+      prisma.lead.count({
+        where: {
+          ...mine,
+          followUpAt: { lte: new Date(new Date().setHours(23, 59, 59, 999)) },
+          status: { notIn: ["CONVERTED", "CLOSED_LOST", "INVALID"] },
+        },
+      }),
+    ]);
+
+    const staffIds = byStaff.map((s) => s.assignedToId).filter(Boolean) as string[];
+    const staff = staffIds.length
+      ? await prisma.user.findMany({ where: { id: { in: staffIds } }, select: { id: true, name: true } })
+      : [];
+    const staffNames = new Map(staff.map((s) => [s.id, s.name]));
+
+    res.json({
+      data: {
+        totalLeads,
+        newToday,
+        propertiesAvailable,
+        propertiesSharedToday: sharedToday,
+        whatsappSentToday: waSentToday,
+        partnerSharedLeads: partnerSharedCount,
+        conversionRate: totalLeads ? Math.round((converted / totalLeads) * 1000) / 10 : 0,
+        followUpsDueToday: followUpsDue,
+        leadsBySource: bySource.map((s) => ({ source: s.source, count: s._count })),
+        leadsByStage: byStage.map((s) => ({ stage: s.stage, count: s._count })),
+        leadsByStaff: byStaff.map((s) => ({
+          staffId: s.assignedToId,
+          name: staffNames.get(s.assignedToId!) ?? "Unknown",
+          count: s._count,
+        })),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── Lead source / status / visa report ───────────────────────────────
+router.get("/leads", requireRole(Role.SALES_MANAGER), async (req, res, next) => {
+  try {
+    const where = dateRange(req as never);
+    const [bySource, byStatus, visaLeads, lost] = await Promise.all([
+      prisma.lead.groupBy({ by: ["source"], where, _count: true }),
+      prisma.lead.groupBy({ by: ["status"], where, _count: true }),
+      prisma.lead.count({ where: { ...where, OR: [{ source: "VISA_FORM" }, { visaRequired: true }] } }),
+      prisma.lead.findMany({
+        where: { ...where, status: "CLOSED_LOST" },
+        select: { id: true, fullName: true, source: true, assignedTo: { select: { name: true } }, updatedAt: true },
+        take: 100,
+        orderBy: { updatedAt: "desc" },
+      }),
+    ]);
+    res.json({ data: { bySource, byStatus, visaLeadCount: visaLeads, lostLeads: lost } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── Staff performance ────────────────────────────────────────────────
+router.get("/staff", requireRole(Role.SALES_MANAGER), async (req, res, next) => {
+  try {
+    const where = dateRange(req as never);
+    const staff = await prisma.user.findMany({
+      where: { role: { in: ["SALES_EXECUTIVE", "SALES_MANAGER"] }, isActive: true },
+      select: { id: true, name: true },
+    });
+    const rows = await Promise.all(
+      staff.map(async (s) => {
+        const [assigned, converted, waSent, shared] = await Promise.all([
+          prisma.lead.count({ where: { ...where, assignedToId: s.id } }),
+          prisma.lead.count({ where: { ...where, assignedToId: s.id, status: "CONVERTED" } }),
+          prisma.whatsAppLog.count({ where: { sentById: s.id, ...(where.createdAt ? { createdAt: where.createdAt as never } : {}) } }),
+          prisma.partnerLeadShare.count({ where: { sharedById: s.id } }),
+        ]);
+        return {
+          staffId: s.id,
+          name: s.name,
+          leadsAssigned: assigned,
+          converted,
+          conversionRate: assigned ? Math.round((converted / assigned) * 1000) / 10 : 0,
+          whatsappSent: waSent,
+          partnerShares: shared,
+        };
+      })
+    );
+    res.json({ data: rows.sort((a, b) => b.converted - a.converted) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── Partner performance ──────────────────────────────────────────────
+router.get("/partners", requireRole(Role.SALES_MANAGER), async (_req, res, next) => {
+  try {
+    const partners = await prisma.partnerCompany.findMany({ select: { id: true, name: true } });
+    const rows = await Promise.all(
+      partners.map(async (p) => {
+        const [total, byStatus] = await Promise.all([
+          prisma.partnerLeadShare.count({ where: { partnerId: p.id } }),
+          prisma.partnerLeadShare.groupBy({ by: ["status"], where: { partnerId: p.id }, _count: true }),
+        ]);
+        const converted = byStatus.find((s) => s.status === "CONVERTED")?._count ?? 0;
+        return {
+          partnerId: p.id,
+          name: p.name,
+          leadsReceived: total,
+          converted,
+          conversionRate: total ? Math.round((converted / total) * 1000) / 10 : 0,
+          byStatus: byStatus.map((s) => ({ status: s.status, count: s._count })),
+        };
+      })
+    );
+    res.json({ data: rows.sort((a, b) => b.leadsReceived - a.leadsReceived) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── Monthly lead trend (last 12 months) ──────────────────────────────
+router.get("/monthly", requireRole(Role.SALES_MANAGER), async (_req, res, next) => {
+  try {
+    const rows = await prisma.$queryRaw<{ month: string; total: bigint; converted: bigint }[]>`
+      SELECT to_char(date_trunc('month', "createdAt"), 'YYYY-MM') AS month,
+             COUNT(*)::bigint AS total,
+             COUNT(*) FILTER (WHERE status = 'CONVERTED')::bigint AS converted
+      FROM "Lead"
+      WHERE "createdAt" >= now() - interval '12 months'
+      GROUP BY 1 ORDER BY 1`;
+    res.json({
+      data: rows.map((r) => ({ month: r.month, total: Number(r.total), converted: Number(r.converted) })),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+export default router;

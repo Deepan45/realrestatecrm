@@ -1,0 +1,149 @@
+// Professional line icons (lucide-style, stroke-based). All accept standard SVG props.
+import type { SVGProps } from "react";
+
+function Svg({ children, ...props }: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      {children}
+    </svg>
+  );
+}
+
+export type IconType = (props: SVGProps<SVGSVGElement>) => JSX.Element;
+
+export const LayoutDashboardIcon: IconType = (p) => (
+  <Svg {...p}>
+    <rect width="7" height="9" x="3" y="3" rx="1" />
+    <rect width="7" height="5" x="14" y="3" rx="1" />
+    <rect width="7" height="9" x="14" y="12" rx="1" />
+    <rect width="7" height="5" x="3" y="16" rx="1" />
+  </Svg>
+);
+
+export const UsersIcon: IconType = (p) => (
+  <Svg {...p}>
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </Svg>
+);
+
+export const KanbanIcon: IconType = (p) => (
+  <Svg {...p}>
+    <rect width="18" height="18" x="3" y="3" rx="2" />
+    <path d="M8 7v7" />
+    <path d="M12 7v4" />
+    <path d="M16 7v9" />
+  </Svg>
+);
+
+export const BuildingIcon: IconType = (p) => (
+  <Svg {...p}>
+    <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" />
+    <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
+    <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
+    <path d="M10 6h4" />
+    <path d="M10 10h4" />
+    <path d="M10 14h4" />
+    <path d="M10 18h4" />
+  </Svg>
+);
+
+export const BriefcaseIcon: IconType = (p) => (
+  <Svg {...p}>
+    <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+    <rect width="20" height="14" x="2" y="6" rx="2" />
+  </Svg>
+);
+
+export const TrendingUpIcon: IconType = (p) => (
+  <Svg {...p}>
+    <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+    <polyline points="16 7 22 7 22 13" />
+  </Svg>
+);
+
+export const UserIcon: IconType = (p) => (
+  <Svg {...p}>
+    <circle cx="12" cy="8" r="5" />
+    <path d="M20 21a8 8 0 0 0-16 0" />
+  </Svg>
+);
+
+export const SettingsIcon: IconType = (p) => (
+  <Svg {...p}>
+    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+    <circle cx="12" cy="12" r="3" />
+  </Svg>
+);
+
+export const BellIcon: IconType = (p) => (
+  <Svg {...p}>
+    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+  </Svg>
+);
+
+export const MenuIcon: IconType = (p) => (
+  <Svg {...p}>
+    <line x1="4" x2="20" y1="6" y2="6" />
+    <line x1="4" x2="20" y1="12" y2="12" />
+    <line x1="4" x2="20" y1="18" y2="18" />
+  </Svg>
+);
+
+export const XIcon: IconType = (p) => (
+  <Svg {...p}>
+    <path d="M18 6 6 18" />
+    <path d="m6 6 12 12" />
+  </Svg>
+);
+
+export const SearchIcon: IconType = (p) => (
+  <Svg {...p}>
+    <circle cx="11" cy="11" r="8" />
+    <path d="m21 21-4.3-4.3" />
+  </Svg>
+);
+
+export const SendIcon: IconType = (p) => (
+  <Svg {...p}>
+    <path d="m22 2-7 20-4-9-9-4Z" />
+    <path d="M22 2 11 13" />
+  </Svg>
+);
+
+export const HomeIcon: IconType = (p) => (
+  <Svg {...p}>
+    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    <polyline points="9 22 9 12 15 12 15 22" />
+  </Svg>
+);
+
+export const UploadIcon: IconType = (p) => (
+  <Svg {...p}>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="17 8 12 3 7 8" />
+    <line x1="12" x2="12" y1="3" y2="15" />
+  </Svg>
+);
+
+export const VideoIcon: IconType = (p) => (
+  <Svg {...p}>
+    <path d="m22 8-6 4 6 4V8Z" />
+    <rect width="14" height="12" x="2" y="6" rx="2" />
+  </Svg>
+);

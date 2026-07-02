@@ -1,0 +1,156 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
+import { Button, ErrorBanner, Field, Input, Select, Textarea } from "@/components/ui";
+import { Lead, LEAD_SOURCES, PRIORITIES, PROPERTY_TYPES, User, labelize } from "@/lib/types";
+
+interface Props {
+  initial?: Partial<Lead>;
+  onSaved: (lead: Lead) => void;
+  onCancel: () => void;
+}
+
+export default function LeadForm({ initial, onSaved, onCancel }: Props) {
+  const isEdit = !!initial?.id;
+  const [staff, setStaff] = useState<User[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [form, setForm] = useState({
+    fullName: initial?.fullName ?? "",
+    mobile: initial?.mobile ?? "",
+    whatsappNumber: initial?.whatsappNumber ?? "",
+    email: initial?.email ?? "",
+    country: initial?.country ?? "",
+    city: initial?.city ?? "",
+    preferredArea: initial?.preferredArea ?? "",
+    budgetMin: initial?.budgetMin?.toString() ?? "",
+    budgetMax: initial?.budgetMax?.toString() ?? "",
+    currency: initial?.currency ?? "AED",
+    propertyType: initial?.propertyType ?? "",
+    bedrooms: initial?.bedrooms?.toString() ?? "",
+    visaType: initial?.visaType ?? "",
+    visaRequired: initial?.visaRequired ?? false,
+    source: initial?.source ?? "MANUAL",
+    priority: initial?.priority ?? "MEDIUM",
+    assignedToId: initial?.assignedToId ?? "",
+    requirementNotes: initial?.requirementNotes ?? "",
+  });
+
+  useEffect(() => {
+    api.get<{ data: User[] }>("/users?active=true").then((res) =>
+      setStaff(res.data.filter((u) => u.role === "SALES_EXECUTIVE" || u.role === "SALES_MANAGER"))
+    ).catch(() => {});
+  }, []);
+
+  function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
+    setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    const payload = {
+      ...form,
+      email: form.email || null,
+      whatsappNumber: form.whatsappNumber || null,
+      budgetMin: form.budgetMin ? Number(form.budgetMin) : null,
+      budgetMax: form.budgetMax ? Number(form.budgetMax) : null,
+      propertyType: form.propertyType || null,
+      bedrooms: form.bedrooms ? Number(form.bedrooms) : null,
+      assignedToId: form.assignedToId || null,
+    };
+    try {
+      const res = isEdit
+        ? await api.put<{ data: Lead }>(`/leads/${initial!.id}`, payload)
+        : await api.post<{ data: Lead }>("/leads", payload);
+      onSaved(res.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="space-y-4">
+      <ErrorBanner message={error} />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field label="Full name *">
+          <Input required value={form.fullName} onChange={(e) => set("fullName", e.target.value)} />
+        </Field>
+        <Field label="Mobile *">
+          <Input required value={form.mobile} onChange={(e) => set("mobile", e.target.value)} placeholder="+9715…" />
+        </Field>
+        <Field label="WhatsApp number">
+          <Input value={form.whatsappNumber ?? ""} onChange={(e) => set("whatsappNumber", e.target.value)} placeholder="defaults to mobile" />
+        </Field>
+        <Field label="Email">
+          <Input type="email" value={form.email ?? ""} onChange={(e) => set("email", e.target.value)} />
+        </Field>
+        <Field label="Country">
+          <Input value={form.country ?? ""} onChange={(e) => set("country", e.target.value)} />
+        </Field>
+        <Field label="City">
+          <Input value={form.city ?? ""} onChange={(e) => set("city", e.target.value)} />
+        </Field>
+        <Field label="Preferred area">
+          <Input value={form.preferredArea ?? ""} onChange={(e) => set("preferredArea", e.target.value)} />
+        </Field>
+        <Field label="Property type">
+          <Select value={form.propertyType ?? ""} onChange={(e) => set("propertyType", e.target.value)}>
+            <option value="">Any</option>
+            {PROPERTY_TYPES.map((t) => <option key={t} value={t}>{labelize(t)}</option>)}
+          </Select>
+        </Field>
+        <Field label="Budget min">
+          <Input type="number" min={0} value={form.budgetMin} onChange={(e) => set("budgetMin", e.target.value)} />
+        </Field>
+        <Field label="Budget max">
+          <Input type="number" min={0} value={form.budgetMax} onChange={(e) => set("budgetMax", e.target.value)} />
+        </Field>
+        <Field label="Currency">
+          <Select value={form.currency} onChange={(e) => set("currency", e.target.value)}>
+            {["AED", "USD", "EUR", "INR", "SAR"].map((c) => <option key={c}>{c}</option>)}
+          </Select>
+        </Field>
+        <Field label="Bedrooms">
+          <Input type="number" min={0} value={form.bedrooms} onChange={(e) => set("bedrooms", e.target.value)} />
+        </Field>
+        <Field label="Visa type">
+          <Input value={form.visaType ?? ""} onChange={(e) => set("visaType", e.target.value)} placeholder="e.g. Golden Visa" />
+        </Field>
+        <Field label="Visa required?">
+          <Select value={form.visaRequired ? "yes" : "no"} onChange={(e) => set("visaRequired", e.target.value === "yes")}>
+            <option value="no">No</option>
+            <option value="yes">Yes</option>
+          </Select>
+        </Field>
+        <Field label="Source">
+          <Select value={form.source} onChange={(e) => set("source", e.target.value)}>
+            {LEAD_SOURCES.map((s) => <option key={s} value={s}>{labelize(s)}</option>)}
+          </Select>
+        </Field>
+        <Field label="Priority">
+          <Select value={form.priority} onChange={(e) => set("priority", e.target.value)}>
+            {PRIORITIES.map((p) => <option key={p} value={p}>{labelize(p)}</option>)}
+          </Select>
+        </Field>
+        <Field label="Assign to">
+          <Select value={form.assignedToId ?? ""} onChange={(e) => set("assignedToId", e.target.value)}>
+            <option value="">Unassigned</option>
+            {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </Select>
+        </Field>
+      </div>
+      <Field label="Requirement notes">
+        <Textarea rows={3} value={form.requirementNotes ?? ""} onChange={(e) => set("requirementNotes", e.target.value)} />
+      </Field>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="secondary" onClick={onCancel}>Cancel</Button>
+        <Button type="submit" disabled={busy}>{busy ? "Saving…" : isEdit ? "Save changes" : "Create lead"}</Button>
+      </div>
+    </form>
+  );
+}
