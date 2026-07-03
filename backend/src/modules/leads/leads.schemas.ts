@@ -52,6 +52,7 @@ export const sendWhatsAppSchema = z.object({
 export const sharePartnerSchema = z.object({
   partnerId: z.string().min(1),
   notesShared: z.string().optional(),
+  sendWhatsApp: z.boolean().default(true),
 });
 
 export const shortlistSchema = z.object({

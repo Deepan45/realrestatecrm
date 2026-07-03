@@ -619,6 +619,61 @@ router.post("/:id/share-partner", validate(sharePartnerSchema), async (req, res,
     });
     await logActivity(lead.id, req.user!.id, ActivityType.SHARED_TO_PARTNER, `Shared with ${partner.name}`);
 
+    // Send the lead's requirement + shortlisted properties to the partner on WhatsApp
+    const partnerNumber = partner.whatsapp || partner.phone;
+    if (req.body.sendWhatsApp && partnerNumber) {
+      const shortlist = await prisma.propertyMatch.findMany({
+        where: { leadId: lead.id },
+        include: {
+          property: { include: { images: { orderBy: [{ isPrimary: "desc" }, { sortOrder: "asc" }], take: 1 } } },
+        },
+        orderBy: { score: "desc" },
+        take: 5,
+      });
+      const clientUrl = (process.env.CLIENT_URL || "").replace(/\/$/, "");
+      const money = (v: unknown) => Number(v).toLocaleString("en-IN");
+      const lines: string[] = [
+        `🤝 *New lead referral from RealRest*`,
+        `👤 ${lead.fullName} — ${lead.mobile}`,
+        ...(lead.email ? [`✉️ ${lead.email}`] : []),
+        `📍 ${[lead.preferredArea, lead.city].filter(Boolean).join(", ") || "Location not specified"}`,
+        `🏠 ${lead.propertyType ?? "Any type"}${lead.bedrooms != null ? ` · ${lead.bedrooms}BR` : ""}`,
+        ...(lead.budgetMin || lead.budgetMax
+          ? [`💰 ${lead.currency} ${[lead.budgetMin && money(lead.budgetMin), lead.budgetMax && money(lead.budgetMax)].filter(Boolean).join(" – ")}`]
+          : []),
+        ...(req.body.notesShared || lead.requirementNotes ? [`📝 ${req.body.notesShared || lead.requirementNotes}`] : []),
+      ];
+      if (shortlist.length) {
+        lines.push("", "*Suggested properties:*");
+        for (const m of shortlist) {
+          const p = m.property;
+          lines.push(
+            [
+              `🏠 ${p.title}`,
+              `💰 ${p.currency} ${money(p.price)} · 📍 ${p.location}`,
+              p.images[0] ? `🖼 ${p.images[0].url}` : null,
+              clientUrl ? `🔗 ${clientUrl}/properties/${p.id}` : null,
+            ].filter(Boolean).join("\n")
+          );
+        }
+      }
+      const waResult = await whatsappProvider.sendText(partnerNumber, lines.join("\n"));
+      await prisma.whatsAppLog.create({
+        data: {
+          leadId: lead.id,
+          toNumber: partnerNumber,
+          body: lines.join("\n"),
+          propertyIds: shortlist.map((m) => m.propertyId),
+          sentById: req.user!.id,
+          status: waResult.status,
+          providerMessageId: waResult.providerMessageId,
+          error: waResult.error,
+        },
+      });
+      await logActivity(lead.id, req.user!.id, ActivityType.WHATSAPP_SENT,
+        `Lead requirement sent to ${partner.name} on WhatsApp${shortlist.length ? ` with ${shortlist.length} propert${shortlist.length === 1 ? "y" : "ies"}` : ""}`);
+    }
+
     // Notify all users of the partner company
     const partnerUsers = await prisma.user.findMany({ where: { partnerCompanyId: partner.id, isActive: true } });
     await Promise.all(

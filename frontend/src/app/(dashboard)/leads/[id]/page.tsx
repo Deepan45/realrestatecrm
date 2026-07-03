@@ -51,7 +51,7 @@ export default function LeadDetailPage() {
   const [followUpAt, setFollowUpAt] = useState("");
   const [showEdit, setShowEdit] = useState(false);
   const [showShare, setShowShare] = useState(false);
-  const [shareForm, setShareForm] = useState({ partnerId: "", notesShared: "" });
+  const [shareForm, setShareForm] = useState({ partnerId: "", notesShared: "", sendWhatsApp: true });
   const [sending, setSending] = useState(false);
   const isPartner = user?.role === "PARTNER_USER";
   // Partners only get the partner-share history; internal tabs would always be empty for them
@@ -439,13 +439,22 @@ export default function LeadDetailPage() {
           <Field label="Notes to share">
             <Textarea rows={3} value={shareForm.notesShared} onChange={(e) => setShareForm((f) => ({ ...f, notesShared: e.target.value }))} placeholder="Context for the partner team…" />
           </Field>
+          <label className="flex items-center gap-2 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500/40"
+              checked={shareForm.sendWhatsApp}
+              onChange={(e) => setShareForm((f) => ({ ...f, sendWhatsApp: e.target.checked }))}
+            />
+            Send requirement &amp; shortlisted properties to the partner on WhatsApp
+          </label>
           <div className="flex justify-end gap-2">
             <Button variant="secondary" onClick={() => setShowShare(false)}>Cancel</Button>
             <Button
               disabled={!shareForm.partnerId}
               onClick={() => act(
                 () => api.post(`/leads/${id}/share-partner`, shareForm),
-                () => { setShowShare(false); setShareForm({ partnerId: "", notesShared: "" }); setTab("partners"); }
+                () => { setShowShare(false); setShareForm({ partnerId: "", notesShared: "", sendWhatsApp: true }); setTab("partners"); }
               )}
             >
               Share lead
