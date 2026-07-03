@@ -632,10 +632,10 @@ router.post("/:id/share-partner", validate(sharePartnerSchema), async (req, res,
       });
       const clientUrl = (process.env.CLIENT_URL || "").replace(/\/$/, "");
       const money = (v: unknown) => Number(v).toLocaleString("en-IN");
+      // Requirement only — client contact details stay inside the CRM
       const lines: string[] = [
         `🤝 *New lead referral from RealRest*`,
-        `👤 ${lead.fullName} — ${lead.mobile}`,
-        ...(lead.email ? [`✉️ ${lead.email}`] : []),
+        `👤 ${lead.fullName}`,
         `📍 ${[lead.preferredArea, lead.city].filter(Boolean).join(", ") || "Location not specified"}`,
         `🏠 ${lead.propertyType ?? "Any type"}${lead.bedrooms != null ? ` · ${lead.bedrooms}BR` : ""}`,
         ...(lead.budgetMin || lead.budgetMax
