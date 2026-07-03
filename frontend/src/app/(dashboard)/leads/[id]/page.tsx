@@ -39,6 +39,9 @@ export default function LeadDetailPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [matches, setMatches] = useState<Match[] | null>(null);
   const [matching, setMatching] = useState(false);
+  const [searchQ, setSearchQ] = useState("");
+  const [searchResults, setSearchResults] = useState<Match[] | null>(null);
+  const [searching, setSearching] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [templates, setTemplates] = useState<Template[]>([]);
   const [templateKey, setTemplateKey] = useState("property_shortlist");
@@ -89,6 +92,20 @@ export default function LeadDetailPage() {
     }
   }
 
+  async function runSearch() {
+    if (!searchQ.trim()) return setSearchResults(null);
+    setSearching(true);
+    setActionError(null);
+    try {
+      const res = await api.get<{ data: Property[] }>(`/properties?q=${encodeURIComponent(searchQ.trim())}&status=AVAILABLE&pageSize=20`);
+      setSearchResults(res.data.map((property) => ({ property, score: 0, reasons: ["Manual search"] })));
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : "Search failed");
+    } finally {
+      setSearching(false);
+    }
+  }
+
   function toggleSelect(propertyId: string) {
     setSelected((s) => {
       const next = new Set(s);
@@ -121,6 +138,16 @@ export default function LeadDetailPage() {
 
   if (error) return <p className="text-sm text-red-600">{error}</p>;
   if (!lead) return <Spinner />;
+
+  const autoMatches: Match[] =
+    matches ??
+    lead.shortlist.map((s) => ({
+      property: s.property,
+      score: s.score,
+      reasons: s.sharedViaWhatsApp ? ["Already shared via WhatsApp"] : ["Saved shortlist"],
+    }));
+  const manualResults = (searchResults ?? []).filter((m) => !autoMatches.some((x) => x.property.id === m.property.id));
+  const propertyList = [...manualResults, ...autoMatches];
 
   const info: [string, React.ReactNode][] = [
     ["Mobile", lead.mobile],
@@ -257,11 +284,32 @@ export default function LeadDetailPage() {
                 </div>
               </div>
 
-              {matches === null && lead.shortlist.length === 0 && (
-                <p className="text-sm text-slate-500">Click “Find matches” to score current inventory against this lead's requirements.</p>
+              {/* Manual property search */}
+              <div className="mb-3 flex gap-2">
+                <Input
+                  placeholder="Search properties by title, location or description…"
+                  value={searchQ}
+                  onChange={(e) => setSearchQ(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); runSearch(); } }}
+                />
+                <Button variant="secondary" size="sm" className="shrink-0" onClick={runSearch} disabled={searching}>
+                  {searching ? "Searching…" : "Search"}
+                </Button>
+                {searchResults !== null && (
+                  <Button variant="ghost" size="sm" className="shrink-0" onClick={() => { setSearchQ(""); setSearchResults(null); }}>
+                    Clear
+                  </Button>
+                )}
+              </div>
+              {searchResults !== null && searchResults.length === 0 && (
+                <p className="mb-2 text-sm text-slate-500">No available properties found for “{searchQ}”.</p>
               )}
 
-              {(matches ?? lead.shortlist.map((s) => ({ property: s.property, score: s.score, reasons: s.sharedViaWhatsApp ? ["Already shared via WhatsApp"] : ["Saved shortlist"] }))).map((m) => (
+              {propertyList.length === 0 && searchResults === null && (
+                <p className="text-sm text-slate-500">Click “Find matches” to score current inventory against this lead's requirements, or search properties manually above.</p>
+              )}
+
+              {propertyList.map((m) => (
                 <label
                   key={m.property.id}
                   className={`mb-2 flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition ${selected.has(m.property.id) ? "border-brand-500 bg-brand-50" : "border-slate-200 hover:border-slate-300"}`}
@@ -287,9 +335,9 @@ export default function LeadDetailPage() {
                   </div>
                   <div className="shrink-0 text-right">
                     <div className={`text-sm font-bold ${m.score >= 70 ? "text-emerald-600" : m.score >= 50 ? "text-amber-600" : "text-slate-500"}`}>
-                      {m.score}%
+                      {m.score > 0 ? `${m.score}%` : "—"}
                     </div>
-                    <div className="text-[10px] uppercase text-slate-400">match</div>
+                    <div className="text-[10px] uppercase text-slate-400">{m.score > 0 ? "match" : "manual"}</div>
                   </div>
                 </label>
               ))}
