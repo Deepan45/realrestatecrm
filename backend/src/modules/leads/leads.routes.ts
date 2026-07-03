@@ -89,7 +89,7 @@ router.post("/capture", captureRateLimit, validate(captureLeadSchema), async (re
   try {
     const { email, ...rest } = req.body;
     const lead = await prisma.lead.create({
-      data: { ...rest, email: email || null },
+      data: { ...rest, email: email || null, whatsappNumber: rest.whatsappNumber || rest.mobile },
     });
     await logActivity(lead.id, null, ActivityType.LEAD_CREATED, `Lead captured from ${lead.source}`);
     // Alert all managers so the lead gets assigned quickly
@@ -596,6 +596,10 @@ router.post("/:id/share-partner", validate(sharePartnerSchema), async (req, res,
     if (req.user!.role === Role.PARTNER_USER) throw forbidden();
     const partner = await prisma.partnerCompany.findUnique({ where: { id: req.body.partnerId } });
     if (!partner || partner.status !== "ACTIVE") throw badRequest("Partner company not found or inactive");
+    const existing = await prisma.partnerLeadShare.findFirst({
+      where: { leadId: lead.id, partnerId: partner.id },
+    });
+    if (existing) throw badRequest(`This lead is already shared with ${partner.name}`);
 
     const share = await prisma.partnerLeadShare.create({
       data: {

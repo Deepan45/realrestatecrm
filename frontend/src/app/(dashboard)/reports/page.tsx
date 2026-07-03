@@ -104,7 +104,6 @@ export default function ReportsPage() {
               ))}
             </tbody>
           </table>
-          <p className="mt-3 text-xs text-slate-500">Visa-related leads in range: <span className="font-semibold text-slate-700">{leadReport.visaLeadCount}</span></p>
         </Card>
 
         <Card className="p-4">

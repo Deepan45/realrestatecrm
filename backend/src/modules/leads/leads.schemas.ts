@@ -59,10 +59,10 @@ export const shortlistSchema = z.object({
   propertyIds: z.array(z.string()).min(1),
 });
 
-// Public visa/website lead capture — no auth
+// Public website lead capture — no auth
 export const captureLeadSchema = createLeadSchema
   .omit({ assignedToId: true, priority: true })
-  .extend({ source: z.nativeEnum(LeadSource).default(LeadSource.VISA_FORM) });
+  .extend({ source: z.nativeEnum(LeadSource).default(LeadSource.WEBSITE_FORM) });
 
 /** Map a lead status to the pipeline stage it implies (kept in sync automatically). */
 export const statusToStage: Partial<Record<LeadStatus, PipelineStage>> = {

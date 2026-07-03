@@ -160,7 +160,6 @@ export default function PartnersPage() {
                           <div className="text-xs text-slate-500">
                             {s.lead.mobile} · {s.lead.city ?? "—"} · {labelize(s.lead.propertyType)}
                             {s.lead.budgetMax && ` · up to ${fmtMoney(s.lead.budgetMax, s.lead.currency)}`}
-                            {s.lead.visaType && ` · ${s.lead.visaType}`}
                           </div>
                           <div className="text-xs text-slate-400">Shared by {s.sharedBy.name} · {fmtDate(s.createdAt, true)}</div>
                           {s.notesShared && <p className="mt-1 text-xs text-slate-600">{s.notesShared}</p>}
