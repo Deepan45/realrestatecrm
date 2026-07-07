@@ -25,6 +25,9 @@ pipeline {
         NODE_ENV            = "production"
         APP_URL             = "https://realcrm.meettomanage.cloud"
         NEXT_PUBLIC_API_URL = "https://apirealcrm.meettomanage.cloud/api"
+        // The backend's own public origin (no /api suffix) — used to build absolute
+        // links to uploaded images/video in outbound WhatsApp messages
+        PUBLIC_API_URL       = "https://apirealcrm.meettomanage.cloud"
 
         // WhatsApp: "mock" logs locally, "cloud" uses Meta Cloud API, "msg91" uses MSG91
         WHATSAPP_PROVIDER        = "mock"
@@ -111,6 +114,7 @@ pipeline {
                         -e NODE_ENV=${NODE_ENV} \\
                         -e DATABASE_URL="${DATABASE_URL}" \\
                         -e APP_URL=${APP_URL} \\
+                        -e PUBLIC_API_URL=${PUBLIC_API_URL} \\
                         -e JWT_SECRET=${JWT_SECRET} \\
                         -e JWT_EXPIRES_IN=${JWT_EXPIRES_IN} \\
                         -e WHATSAPP_PROVIDER=${WHATSAPP_PROVIDER} \\
@@ -216,6 +220,7 @@ pipeline {
                             -e NODE_ENV=production \\
                             -e DATABASE_URL="${DATABASE_URL}" \\
                             -e APP_URL=${APP_URL} \\
+                            -e PUBLIC_API_URL=${PUBLIC_API_URL} \\
                             -e JWT_SECRET=${JWT_SECRET} \\
                             -e JWT_EXPIRES_IN=${JWT_EXPIRES_IN} \\
                             -e WHATSAPP_PROVIDER=${WHATSAPP_PROVIDER} \\

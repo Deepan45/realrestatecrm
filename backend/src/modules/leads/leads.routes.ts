@@ -14,6 +14,7 @@ import {
 } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import { badRequest, forbidden, HttpError, notFound } from "../../lib/errors";
+import { resolveMediaUrl } from "../../lib/media";
 import { AuthUser, requireAuth, requireRole, salesTeam } from "../../middleware/auth";
 import { validate } from "../../middleware/validate";
 import { fileUpload } from "../../middleware/upload";
@@ -501,7 +502,7 @@ router.post("/:id/send-whatsapp", validate(sendWhatsAppSchema), async (req, res,
 
     const propertyBlock = properties
       .map((p) => {
-        const img = p.images[0]?.url;
+        const img = resolveMediaUrl(p.images[0]?.url);
         return [
           `🏠 *${p.title}*`,
           `💰 ${p.currency} ${Number(p.price).toLocaleString("en-US")}`,
@@ -599,7 +600,7 @@ router.post("/:id/share-partner", validate(sharePartnerSchema), async (req, res,
     const partner = await prisma.partnerCompany.findUnique({ where: { id: req.body.partnerId } });
     if (!partner || partner.status !== "ACTIVE") throw badRequest("Partner company not found or inactive");
     const existing = await prisma.partnerLeadShare.findFirst({
-      where: { leadId: lead.id, partnerId: partner.id },
+      where: { leadId: lead.id, partnerId: partner.id, status: { notIn: ["REJECTED", "CLOSED"] } },
     });
     if (existing) throw badRequest(`This lead is already shared with ${partner.name}`);
 
@@ -657,7 +658,7 @@ router.post("/:id/share-partner", validate(sharePartnerSchema), async (req, res,
             [
               `🏠 ${p.title}`,
               `💰 ${p.currency} ${money(p.price)} · 📍 ${p.location}`,
-              p.images[0] ? `🖼 ${p.images[0].url}` : null,
+              p.images[0] ? `🖼 ${resolveMediaUrl(p.images[0].url)}` : null,
               clientUrl ? `🔗 ${clientUrl}/properties/${p.id}` : null,
             ].filter(Boolean).join("\n")
           );

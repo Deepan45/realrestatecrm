@@ -1,4 +1,13 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+// Backend origin without the /api suffix — needed to resolve relative /uploads/... paths,
+// since the frontend and backend are served from different domains in production.
+const API_ORIGIN = API_URL.replace(/\/api\/?$/, "");
+
+/** Resolve an image/video path returned by the API into an absolute URL. Leaves already-absolute URLs untouched. */
+export function resolveMediaUrl(url?: string | null): string {
+  if (!url) return "";
+  return /^https?:\/\//i.test(url) ? url : `${API_ORIGIN}${url}`;
+}
 
 export class ApiError extends Error {
   constructor(public status: number, message: string, public errors?: { path: string; message: string }[]) {

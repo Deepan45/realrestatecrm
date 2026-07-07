@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { api, qs } from "@/lib/api";
+import { api, qs, resolveMediaUrl } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Badge, Button, Card, EmptyState, ErrorBanner, Input, PageHeader, Pagination, Select, Spinner } from "@/components/ui";
 import { AVAILABILITY, PROPERTY_CATEGORIES, PROPERTY_TYPES, Paginated, Property, fmtMoney, labelize } from "@/lib/types";
@@ -106,7 +106,7 @@ export default function PropertiesPage() {
                 <Card className="overflow-hidden transition hover:shadow-md">
                   {p.images[0] ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={p.images[0].url} alt={p.title} className="h-40 w-full object-cover" />
+                    <img src={resolveMediaUrl(p.images[0].url)} alt={p.title} className="h-40 w-full object-cover" />
                   ) : (
                     <div className="flex h-40 w-full items-center justify-center bg-slate-100 text-slate-300"><BuildingIcon className="h-12 w-12" /></div>
                   )}

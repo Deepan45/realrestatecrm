@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { api } from "@/lib/api";
+import { api, resolveMediaUrl } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import LeadForm from "@/components/LeadForm";
 import {
@@ -320,7 +320,7 @@ export default function LeadDetailPage() {
                   />
                   {m.property.images?.[0] ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={m.property.images[0].url} alt="" className="h-14 w-20 rounded-lg object-cover" />
+                    <img src={resolveMediaUrl(m.property.images[0].url)} alt="" className="h-14 w-20 rounded-lg object-cover" />
                   ) : (
                     <div className="flex h-14 w-20 items-center justify-center rounded-lg bg-slate-100 text-slate-400"><BuildingIcon className="h-6 w-6" /></div>
                   )}

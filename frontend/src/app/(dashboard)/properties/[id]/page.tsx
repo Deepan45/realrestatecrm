@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { api } from "@/lib/api";
+import { api, resolveMediaUrl } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import PropertyForm from "@/components/PropertyForm";
 import { Badge, Button, Card, Spinner } from "@/components/ui";
@@ -70,7 +70,7 @@ export default function PropertyDetailPage() {
             <div className="grid grid-cols-2 gap-1">
               {property.images.map((img, i) => (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img key={img.id} src={img.url} alt="" className={`w-full object-cover ${i === 0 ? "col-span-2 h-80" : "h-40"}`} />
+                <img key={img.id} src={resolveMediaUrl(img.url)} alt="" className={`w-full object-cover ${i === 0 ? "col-span-2 h-80" : "h-40"}`} />
               ))}
             </div>
           ) : (
@@ -106,10 +106,10 @@ export default function PropertyDetailPage() {
                   <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-600">
                     <VideoIcon className="h-3.5 w-3.5" /> Video tour
                   </div>
-                  <video src={property.videoUrl} controls className="w-full rounded-lg bg-slate-900" />
+                  <video src={resolveMediaUrl(property.videoUrl)} controls className="w-full rounded-lg bg-slate-900" />
                 </div>
               ) : (
-                <a href={property.videoUrl} target="_blank" rel="noreferrer" className="mt-3 flex items-center gap-1.5 text-sm text-brand-600 hover:underline">
+                <a href={property.videoUrl ?? undefined} target="_blank" rel="noreferrer" className="mt-3 flex items-center gap-1.5 text-sm text-brand-600 hover:underline">
                   <VideoIcon className="h-4 w-4" /> Watch video tour
                 </a>
               )

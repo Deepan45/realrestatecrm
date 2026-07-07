@@ -6,6 +6,9 @@ dotenv.config({ override: true });
 export const env = {
   port: Number(process.env.PORT || 4000),
   appUrl: process.env.APP_URL || "http://localhost:3000",
+  // This server's own public origin — needed to turn "/uploads/xxx.jpg" into a real
+  // link when embedding property media in outbound WhatsApp/email messages.
+  publicUrl: (process.env.PUBLIC_API_URL || `http://localhost:${Number(process.env.PORT || 4000)}`).replace(/\/$/, ""),
   jwtSecret: process.env.JWT_SECRET || "dev-secret-change-me",
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || "7d",
   whatsapp: {

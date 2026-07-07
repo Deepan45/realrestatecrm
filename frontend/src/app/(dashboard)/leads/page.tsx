@@ -45,6 +45,14 @@ function LeadsContent() {
     return () => clearTimeout(t);
   }, [load, q]);
 
+  // Keep in sync with the header's global search — it navigates to /leads?q=... on
+  // the same route, which doesn't remount this component, so the initial useState wouldn't pick it up.
+  useEffect(() => {
+    const urlQ = params.get("q") ?? "";
+    if (urlQ !== q) { setQ(urlQ); setPage(1); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
+
   useEffect(() => {
     if (hasRole("SALES_MANAGER")) {
       api.get<{ data: User[] }>("/users?active=true").then((res) =>

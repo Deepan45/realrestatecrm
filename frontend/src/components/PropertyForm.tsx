@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { api } from "@/lib/api";
+import { api, resolveMediaUrl } from "@/lib/api";
 import { Button, ErrorBanner, Field, Input, Select, Textarea } from "@/components/ui";
 import { AVAILABILITY, FURNISHING, PROPERTY_CATEGORIES, PROPERTY_TYPES, Property, labelize } from "@/lib/types";
 import { UploadIcon, XIcon } from "@/components/icons";
@@ -184,7 +184,7 @@ export default function PropertyForm({ initial, onSaved }: { initial?: Property;
             {images.map((img) => (
               <div key={img.id} className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={img.url} alt="" className="h-24 w-32 rounded-lg object-cover" />
+                <img src={resolveMediaUrl(img.url)} alt="" className="h-24 w-32 rounded-lg object-cover" />
                 <button
                   type="button"
                   onClick={() => removeImage(img.id)}
@@ -203,7 +203,7 @@ export default function PropertyForm({ initial, onSaved }: { initial?: Property;
           <span className="mb-2 mt-4 block text-xs font-medium text-slate-600">Video tour</span>
           {videoUrl ? (
             <div className="relative inline-block">
-              <video src={videoUrl} controls className="h-40 rounded-lg bg-slate-900" />
+              <video src={resolveMediaUrl(videoUrl)} controls className="h-40 rounded-lg bg-slate-900" />
               <button
                 type="button"
                 onClick={removeVideo}
