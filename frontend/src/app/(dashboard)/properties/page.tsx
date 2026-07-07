@@ -6,7 +6,7 @@ import { api, qs } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Badge, Button, Card, EmptyState, ErrorBanner, Input, PageHeader, Pagination, Select, Spinner } from "@/components/ui";
 import { AVAILABILITY, PROPERTY_CATEGORIES, PROPERTY_TYPES, Paginated, Property, fmtMoney, labelize } from "@/lib/types";
-import { BuildingIcon } from "@/components/icons";
+import { BuildingIcon, UploadCloudIcon } from "@/components/icons";
 
 export default function PropertiesPage() {
   const { hasRole } = useAuth();
@@ -53,13 +53,13 @@ export default function PropertiesPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        icon="🏘️"
+        icon={BuildingIcon}
         title="Properties Inventory"
         subtitle="Browse, list, and manage your property catalog"
         actions={canEdit && (
           <>
             <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={(e) => e.target.files?.[0] && importCsv(e.target.files[0])} />
-            <Button variant="secondary" onClick={() => fileRef.current?.click()}>📤 Import CSV</Button>
+            <Button variant="secondary" onClick={() => fileRef.current?.click()}><UploadCloudIcon className="mr-1.5 inline h-3.5 w-3.5" />Import CSV</Button>
             <Link href="/properties/new"><Button>+ Add property</Button></Link>
           </>
         )}

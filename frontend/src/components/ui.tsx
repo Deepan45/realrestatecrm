@@ -1,7 +1,7 @@
 "use client";
 
 import { forwardRef } from "react";
-import { XIcon } from "@/components/icons";
+import { IconType, XIcon } from "@/components/icons";
 
 // ── Minimal UI kit (shadcn-style, Tailwind only) ─────────────────────
 
@@ -124,13 +124,13 @@ export function Card({ children, className = "" }: { children: React.ReactNode; 
 }
 
 export function PageHeader({
-  icon, title, subtitle, actions,
-}: { icon: string; title: string; subtitle?: string; actions?: React.ReactNode }) {
+  icon: Icon, title, subtitle, actions,
+}: { icon: IconType; title: string; subtitle?: string; actions?: React.ReactNode }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="flex items-center gap-3">
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-50 to-brand-100 text-xl ring-1 ring-inset ring-brand-100">
-          {icon}
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-50 to-brand-100 ring-1 ring-inset ring-brand-100">
+          <Icon className="h-5 w-5 text-brand-600" />
         </div>
         <div>
           <h1 className="text-lg font-semibold tracking-tight text-slate-800">{title}</h1>

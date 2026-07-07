@@ -7,6 +7,7 @@ import { api, qs } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import LeadForm from "@/components/LeadForm";
 import { Badge, Button, Card, EmptyState, ErrorBanner, Input, Modal, PageHeader, Pagination, Select, Spinner } from "@/components/ui";
+import { UploadCloudIcon, UsersIcon } from "@/components/icons";
 import {
   LEAD_SOURCES, LEAD_STATUSES, Lead, PROPERTY_TYPES, Paginated, User,
   fmtDate, fmtMoney, labelize,
@@ -67,7 +68,7 @@ function LeadsContent() {
   return (
     <div className="space-y-4">
       <PageHeader
-        icon="👥"
+        icon={UsersIcon}
         title="CRM Pipeline"
         subtitle="Track leads from first contact through to conversion"
         actions={hasRole("SALES_MANAGER", "SALES_EXECUTIVE") && (
@@ -79,7 +80,7 @@ function LeadsContent() {
               className="hidden"
               onChange={(e) => e.target.files?.[0] && importCsv(e.target.files[0])}
             />
-            <Button variant="secondary" onClick={() => fileRef.current?.click()}>📤 Import CSV</Button>
+            <Button variant="secondary" onClick={() => fileRef.current?.click()}><UploadCloudIcon className="mr-1.5 inline h-3.5 w-3.5" />Import CSV</Button>
             <Button onClick={() => setShowCreate(true)}>+ New lead</Button>
           </>
         )}

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { Button, Card, ErrorBanner, Field, Input, Select, Textarea } from "@/components/ui";
+import { CheckIcon } from "@/components/icons";
 
 const PROPERTY_TYPES = ["APARTMENT", "VILLA", "TOWNHOUSE", "PENTHOUSE", "STUDIO", "PLOT", "OFFICE", "RETAIL", "WAREHOUSE", "OTHER"];
 
@@ -80,7 +81,7 @@ export default function EnquiryPage() {
 
         {submitted ? (
           <div className="py-8 text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 text-2xl">✓</div>
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100"><CheckIcon className="h-6 w-6 text-emerald-600" /></div>
             <h2 className="text-lg font-semibold text-slate-800">Thank you!</h2>
             <p className="mt-2 text-sm text-slate-500">
               Your enquiry has been received. One of our consultants will contact you soon.

@@ -3,15 +3,16 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { Button, PageHeader, Select } from "@/components/ui";
+import { AlertTriangleIcon, FileTextIcon, IconType, ScaleIcon, SendIcon, SparklesIcon, TrendingUpIcon } from "@/components/icons";
 import { Lead, Paginated, Property } from "@/lib/types";
 
 type ActionKey = "sales-pitch" | "investment-proposal" | "price-predictor" | "agreement-draft";
 
-const ACTIONS: { key: ActionKey; icon: string; label: string }[] = [
-  { key: "sales-pitch", icon: "📣", label: "Generate Sales Pitch" },
-  { key: "investment-proposal", icon: "📄", label: "Generate Investment Proposal" },
-  { key: "price-predictor", icon: "📈", label: "AI Property Price Predictor" },
-  { key: "agreement-draft", icon: "⚖️", label: "Generate Sale Agreement Draft" },
+const ACTIONS: { key: ActionKey; icon: IconType; label: string }[] = [
+  { key: "sales-pitch", icon: SendIcon, label: "Generate Sales Pitch" },
+  { key: "investment-proposal", icon: FileTextIcon, label: "Generate Investment Proposal" },
+  { key: "price-predictor", icon: TrendingUpIcon, label: "AI Property Price Predictor" },
+  { key: "agreement-draft", icon: ScaleIcon, label: "Generate Sale Agreement Draft" },
 ];
 
 interface ConsoleEntry {
@@ -51,7 +52,7 @@ export default function AiAgentPage() {
       const res = await api.post<{ data: { text: string } }>(`/ai/${path}`, body);
       push({ role: "assistant", text: res.data.text });
     } catch (err) {
-      push({ role: "assistant", text: `⚠️ ${err instanceof Error ? err.message : "AI request failed"}` });
+      push({ role: "assistant", text: `Error: ${err instanceof Error ? err.message : "AI request failed"}` });
     } finally {
       setBusy(false);
       setAction(null);
@@ -93,7 +94,7 @@ export default function AiAgentPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader icon="✨" title="AI Operating Agent" subtitle="Automate pitches, proposals, price predictions, and agreement drafts using real inventory and lead data" />
+      <PageHeader icon={SparklesIcon} title="AI Operating Agent" subtitle="Automate pitches, proposals, price predictions, and agreement drafts using real inventory and lead data" />
 
       <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
         {/* Prompt generator sidebar */}
@@ -109,7 +110,7 @@ export default function AiAgentPage() {
                   : "border-slate-800 bg-slate-900 text-slate-200 hover:border-slate-700 hover:bg-slate-800"
               }`}
             >
-              <span>{a.icon}</span>
+              <a.icon className="h-4 w-4 shrink-0" />
               {a.label}
             </button>
           ))}
@@ -165,11 +166,25 @@ export default function AiAgentPage() {
           )}
 
           <div className="min-h-[320px] flex-1 space-y-3 overflow-y-auto rounded-xl border border-slate-800 bg-black/40 p-4 font-mono text-sm">
-            {entries.map((e, i) => (
-              <div key={i} className={e.role === "user" ? "text-brand-300" : e.role === "system" ? "text-slate-500" : "whitespace-pre-wrap text-slate-200"}>
-                {e.role === "user" ? `> ${e.text}` : e.text}
-              </div>
-            ))}
+            {entries.map((e, i) => {
+              const isError = e.role === "assistant" && e.text.startsWith("Error:");
+              return (
+                <div
+                  key={i}
+                  className={
+                    e.role === "user"
+                      ? "text-brand-300"
+                      : e.role === "system"
+                        ? "text-slate-500"
+                        : isError
+                          ? "flex items-start gap-1.5 whitespace-pre-wrap text-red-400"
+                          : "whitespace-pre-wrap text-slate-200"
+                  }
+                >
+                  {e.role === "user" ? `> ${e.text}` : isError ? (<><AlertTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" />{e.text.replace(/^Error:\s*/, "")}</>) : e.text}
+                </div>
+              );
+            })}
             {busy && <div className="text-slate-500">Thinking…</div>}
           </div>
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Badge, Button, Card, EmptyState, ErrorBanner, Field, Input, Modal, PageHeader, Select, Spinner, Textarea } from "@/components/ui";
+import { BriefcaseIcon } from "@/components/icons";
 import { PARTNER_SHARE_STATUSES, PartnerCompany, fmtDate, fmtMoney, labelize } from "@/lib/types";
 
 interface Share {
@@ -98,7 +99,7 @@ export default function PartnersPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        icon="🤝"
+        icon={BriefcaseIcon}
         title={isPartner ? "Shared Leads" : "Vendor Network"}
         subtitle={isPartner ? "Leads referred to your company" : "Manage partner companies and track shared referrals"}
         actions={canManage && <Button onClick={() => openForm()}>+ Add partner</Button>}

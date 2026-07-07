@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api, qs } from "@/lib/api";
 import { Badge, Card, EmptyState, ErrorBanner, PageHeader, Spinner } from "@/components/ui";
+import { CalendarIcon } from "@/components/icons";
 import { Lead, Paginated, fmtDate, labelize } from "@/lib/types";
 
 function isPast(iso?: string | null) {
@@ -32,7 +33,7 @@ export default function SiteVisitsPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader icon="📅" title="Site Visits & Appointments" subtitle="Every lead with a scheduled follow-up or site visit, earliest first" />
+      <PageHeader icon={CalendarIcon} title="Site Visits & Appointments" subtitle="Every lead with a scheduled follow-up or site visit, earliest first" />
 
       <ErrorBanner message={error} />
 
