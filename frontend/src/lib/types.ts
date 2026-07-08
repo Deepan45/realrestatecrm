@@ -20,12 +20,12 @@ export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
 export const PIPELINE_STAGES = [
   "NEW_LEAD", "INITIAL_CONTACT", "REQUIREMENT_ANALYSIS", "PROPERTY_MATCHING",
-  "PROPERTY_SHARED", "FOLLOW_UP_PENDING", "INTERESTED_SITE_VISIT", "NEGOTIATION",
-  "SHARED_TO_PARTNER", "CONVERTED", "LOST_CLOSED",
+  "PROPERTY_SHARED", "FOLLOW_UP_PENDING", "SITE_VISIT_SCHEDULED", "SITE_VISIT_COMPLETED", "NEGOTIATION",
+  "BANK_LOAN", "SHARED_TO_PARTNER", "REGISTRATION", "LOST_CLOSED",
 ] as const;
 export type PipelineStage = (typeof PIPELINE_STAGES)[number];
 
-export const LEAD_SOURCES = ["WEBSITE_FORM", "MANUAL", "REFERRAL", "WHATSAPP", "IMPORT", "PARTNER"] as const;
+export const LEAD_SOURCES = ["WEBSITE_FORM", "MANUAL", "REFERRAL", "WHATSAPP", "IMPORT", "PARTNER", "META_ADS"] as const;
 export const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"] as const;
 export const PROPERTY_TYPES = ["APARTMENT", "VILLA", "TOWNHOUSE", "PENTHOUSE", "STUDIO", "PLOT", "OFFICE", "RETAIL", "WAREHOUSE", "OTHER"] as const;
 export const PROPERTY_CATEGORIES = ["SALE", "RENT", "LEASE", "COMMERCIAL", "RESIDENTIAL"] as const;
@@ -84,12 +84,28 @@ export interface Property {
   currency: string;
   description?: string | null;
   videoUrl?: string | null;
+  youtubeUrl?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   status: string;
   ownerName?: string | null;
   contactName?: string | null;
   contactPhone?: string | null;
   images: PropertyImage[];
   assignedTo?: { id: string; name: string } | null;
+  createdAt: string;
+}
+
+export interface BlogPost {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt?: string | null;
+  coverImageUrl?: string | null;
+  body: string;
+  isPublished: boolean;
+  publishedAt?: string | null;
+  author?: { name: string } | null;
   createdAt: string;
 }
 

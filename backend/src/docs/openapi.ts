@@ -88,6 +88,28 @@ export const openApiSpec = {
     },
     "/leads/board": { get: { tags: ["Leads"], summary: "Kanban board grouped by pipeline stage", security: bearer, responses: { "200": { description: "OK" } } } },
     "/leads/import": { post: { tags: ["Leads"], summary: "Bulk import leads from CSV (multipart field: file)", security: bearer, responses: { "200": { description: "Import summary" } } } },
+    "/leads/import-basic": { post: { tags: ["Leads"], summary: "Bulk import offline-campaign CSV (columns: Name,Phone,Address)", security: bearer, responses: { "200": { description: "Import summary" } } } },
+    "/leads/export": { get: { tags: ["Leads"], summary: "Download all leads as CSV (Super Admin only, audited)", security: bearer, responses: { "200": { description: "CSV file" } } } },
+    "/leads/webhook/website": {
+      post: {
+        tags: ["Webhooks"],
+        summary: "Inbound website form / CTA pop-up lead webhook (header: X-Webhook-Secret)",
+        requestBody: { content: { "application/json": { example: { name: "Ravi Kumar", phone: "+919876500000", email: "ravi@example.com", message: "Interested in OMR apartments", formName: "cofounder-profile-cta" } } } },
+        responses: { "201": { description: "Lead created" }, "401": { description: "Bad secret" }, "503": { description: "Webhook not configured" } },
+      },
+    },
+    "/leads/webhook/whatsapp-click": {
+      post: {
+        tags: ["Webhooks"],
+        summary: "WhatsApp click-to-chat relay webhook (header: X-Webhook-Secret)",
+        requestBody: { content: { "application/json": { example: { phone: "+919876500000", sourcePage: "/properties/omr-3bhk" } } } },
+        responses: { "201": { description: "Lead created" } },
+      },
+    },
+    "/leads/webhook/meta": {
+      get: { tags: ["Webhooks"], summary: "Meta Lead Ads webhook verification handshake", responses: { "200": { description: "Echoes hub.challenge" } } },
+      post: { tags: ["Webhooks"], summary: "Meta Lead Ads event receiver (HMAC-verified, fetches lead field data from Graph API)", responses: { "200": { description: "Processed" } } },
+    },
     "/leads/{id}": {
       get: { tags: ["Leads"], summary: "Lead detail with notes, timeline, WhatsApp + partner history", security: bearer, parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], responses: { "200": { description: "OK" } } },
       put: { tags: ["Leads"], summary: "Update lead", security: bearer, parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], responses: { "200": { description: "OK" } } },
@@ -117,7 +139,17 @@ export const openApiSpec = {
       delete: { tags: ["Properties"], summary: "Delete property", security: bearer, parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], responses: { "200": { description: "OK" } } },
     },
     "/properties/{id}/images": { post: { tags: ["Properties"], summary: "Upload images (multipart field: images)", security: bearer, parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], responses: { "201": { description: "Created" } } } },
+    "/properties/{id}/video": { post: { tags: ["Properties"], summary: "Upload/replace video tour (multipart field: video)", security: bearer, parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], responses: { "201": { description: "Created" } } } },
     "/properties/import": { post: { tags: ["Properties"], summary: "Bulk import from CSV", security: bearer, responses: { "200": { description: "Import summary" } } } },
+    "/properties/export": { get: { tags: ["Properties"], summary: "Download all properties as CSV (Super Admin only, audited)", security: bearer, responses: { "200": { description: "CSV file" } } } },
+    "/integrations/website/properties": {
+      post: {
+        tags: ["Webhooks"],
+        summary: "Inbound property sync from the public website — upserts by externalId (header: X-Webhook-Secret)",
+        requestBody: { content: { "application/json": { example: { externalId: "site-123", title: "3BHK Apartment, Anna Nagar", type: "APARTMENT", category: "SALE", location: "Anna Nagar, Chennai", price: 17500000, images: ["https://example.com/img1.jpg"] } } } },
+        responses: { "201": { description: "Upserted" }, "503": { description: "Webhook not configured" } },
+      },
+    },
 
     "/partners": crud("Partners", "partner company"),
     "/partners/{id}": {
@@ -126,6 +158,7 @@ export const openApiSpec = {
     },
     "/partners/{id}/leads": { get: { tags: ["Partners"], summary: "Leads shared with a partner", security: bearer, parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], responses: { "200": { description: "OK" } } } },
     "/partners/shares/{shareId}": { put: { tags: ["Partners"], summary: "Update partner-side status of a shared lead", security: bearer, parameters: [{ name: "shareId", in: "path", required: true, schema: { type: "string" } }], responses: { "200": { description: "OK" } } } },
+    "/partners/shares/{shareId}/reveal-phone": { post: { tags: ["Partners"], summary: "Reveal the masked client number for one share (audited)", security: bearer, parameters: [{ name: "shareId", in: "path", required: true, schema: { type: "string" } }], responses: { "200": { description: "Real numbers" } } } },
 
     "/whatsapp/templates": crud("WhatsApp", "template"),
     "/whatsapp/logs": { get: { tags: ["WhatsApp"], summary: "WhatsApp message log", security: bearer, responses: { "200": { description: "OK" } } } },
@@ -134,7 +167,16 @@ export const openApiSpec = {
     "/reports/leads": { get: { tags: ["Reports"], summary: "Lead source / status / visa / lost report", security: bearer, responses: { "200": { description: "OK" } } } },
     "/reports/staff": { get: { tags: ["Reports"], summary: "Staff performance report", security: bearer, responses: { "200": { description: "OK" } } } },
     "/reports/partners": { get: { tags: ["Reports"], summary: "Partner company report", security: bearer, responses: { "200": { description: "OK" } } } },
-    "/reports/monthly": { get: { tags: ["Reports"], summary: "Monthly lead trend (12 months)", security: bearer, responses: { "200": { description: "OK" } } } },
+    "/reports/monthly": { get: { tags: ["Reports"], summary: "Monthly lead trend + pipeline value (12 months)", security: bearer, responses: { "200": { description: "OK" } } } },
+    "/reports/property-engagement": { get: { tags: ["Reports"], summary: "Listings ranked by views and shortlist count", security: bearer, responses: { "200": { description: "OK" } } } },
+    "/reports/buyer-behavior": { get: { tags: ["Reports"], summary: "Repeat inquirers, avg decision time, avg shortlist size", security: bearer, responses: { "200": { description: "OK" } } } },
+
+    "/blog": {
+      get: { tags: ["Blog"], summary: "Published posts (public, paginated)", responses: { "200": { description: "OK" } } },
+      post: { tags: ["Blog"], summary: "Create post (manager+)", security: bearer, responses: { "201": { description: "Created" } } },
+    },
+    "/blog/{slug}": { get: { tags: ["Blog"], summary: "Read a published post by slug (public)", parameters: [{ name: "slug", in: "path", required: true, schema: { type: "string" } }], responses: { "200": { description: "OK" } } } },
+    "/blog/admin/all": { get: { tags: ["Blog"], summary: "All posts incl. drafts (manager+)", security: bearer, responses: { "200": { description: "OK" } } } },
 
     "/users": crud("Users", "user"),
     "/notifications": { get: { tags: ["Notifications"], summary: "My notifications", security: bearer, responses: { "200": { description: "OK" } } } },

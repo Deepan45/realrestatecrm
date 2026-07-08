@@ -2,15 +2,16 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { api, qs, resolveMediaUrl } from "@/lib/api";
+import { api, downloadFile, qs, resolveMediaUrl } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Badge, Button, Card, EmptyState, ErrorBanner, Input, PageHeader, Pagination, Select, Spinner } from "@/components/ui";
 import { AVAILABILITY, PROPERTY_CATEGORIES, PROPERTY_TYPES, Paginated, Property, fmtMoney, labelize } from "@/lib/types";
-import { BuildingIcon, UploadCloudIcon } from "@/components/icons";
+import { BuildingIcon, DownloadIcon, UploadCloudIcon } from "@/components/icons";
 
 export default function PropertiesPage() {
   const { hasRole } = useAuth();
   const canEdit = hasRole("PROPERTY_STAFF", "SALES_MANAGER");
+  const canExport = hasRole();
   const [result, setResult] = useState<Paginated<Property> | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -50,17 +51,30 @@ export default function PropertiesPage() {
     }
   }
 
+  async function exportCsv() {
+    try {
+      await downloadFile("/properties/export", `properties-${new Date().toISOString().slice(0, 10)}.csv`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Export failed");
+    }
+  }
+
   return (
     <div className="space-y-4">
       <PageHeader
         icon={BuildingIcon}
         title="Properties Inventory"
         subtitle="Browse, list, and manage your property catalog"
-        actions={canEdit && (
+        actions={(canEdit || canExport) && (
           <>
-            <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={(e) => e.target.files?.[0] && importCsv(e.target.files[0])} />
-            <Button variant="secondary" onClick={() => fileRef.current?.click()}><UploadCloudIcon className="mr-1.5 inline h-3.5 w-3.5" />Import CSV</Button>
-            <Link href="/properties/new"><Button>+ Add property</Button></Link>
+            {canEdit && (
+              <>
+                <input ref={fileRef} type="file" accept=".csv" className="hidden" onChange={(e) => e.target.files?.[0] && importCsv(e.target.files[0])} />
+                <Button variant="secondary" onClick={() => fileRef.current?.click()}><UploadCloudIcon className="mr-1.5 inline h-3.5 w-3.5" />Import CSV</Button>
+              </>
+            )}
+            {canExport && <Button variant="secondary" onClick={exportCsv}><DownloadIcon className="mr-1.5 inline h-3.5 w-3.5" />Export CSV</Button>}
+            {canEdit && <Link href="/properties/new"><Button>+ Add property</Button></Link>}
           </>
         )}
       />

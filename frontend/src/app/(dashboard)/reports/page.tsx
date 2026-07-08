@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, qs } from "@/lib/api";
-import { Button, Card, Input, Spinner } from "@/components/ui";
+import { Button, Card, Input, PageHeader, Spinner } from "@/components/ui";
+import { TrendingUpIcon } from "@/components/icons";
 import { fmtDate, labelize } from "@/lib/types";
 
 interface LeadReport {
@@ -14,7 +15,7 @@ interface LeadReport {
 
 interface StaffRow {
   staffId: string; name: string; leadsAssigned: number; converted: number;
-  conversionRate: number; whatsappSent: number; partnerShares: number;
+  conversionRate: number; whatsappSent: number; partnerShares: number; siteVisitsCompleted: number;
 }
 
 interface PartnerRow {
@@ -22,7 +23,11 @@ interface PartnerRow {
   conversionRate: number; byStatus: { status: string; count: number }[];
 }
 
-interface MonthRow { month: string; total: number; converted: number }
+interface MonthRow { month: string; total: number; converted: number; pipelineValue: number }
+
+interface PropertyEngagementRow { propertyId: string; title: string; location: string; status: string; views: number; shortlists: number }
+
+interface BuyerBehavior { repeatInquirers: number; convertedLeadCount: number; avgDecisionDays: number; avgShortlistSize: number }
 
 export default function ReportsPage() {
   const [from, setFrom] = useState("");
@@ -31,6 +36,8 @@ export default function ReportsPage() {
   const [staffReport, setStaffReport] = useState<StaffRow[] | null>(null);
   const [partnerReport, setPartnerReport] = useState<PartnerRow[] | null>(null);
   const [monthly, setMonthly] = useState<MonthRow[] | null>(null);
+  const [propertyEngagement, setPropertyEngagement] = useState<PropertyEngagementRow[] | null>(null);
+  const [buyerBehavior, setBuyerBehavior] = useState<BuyerBehavior | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -40,12 +47,16 @@ export default function ReportsPage() {
       api.get<{ data: StaffRow[] }>(`/reports/staff${range}`),
       api.get<{ data: PartnerRow[] }>("/reports/partners"),
       api.get<{ data: MonthRow[] }>("/reports/monthly"),
+      api.get<{ data: PropertyEngagementRow[] }>(`/reports/property-engagement${range}`),
+      api.get<{ data: BuyerBehavior }>(`/reports/buyer-behavior${range}`),
     ])
-      .then(([l, s, p, m]) => {
+      .then(([l, s, p, m, pe, bb]) => {
         setLeadReport(l.data);
         setStaffReport(s.data);
         setPartnerReport(p.data);
         setMonthly(m.data);
+        setPropertyEngagement(pe.data);
+        setBuyerBehavior(bb.data);
       })
       .catch((e) => setError(e.message));
   }, [from, to]);
@@ -53,21 +64,25 @@ export default function ReportsPage() {
   useEffect(load, [load]);
 
   if (error) return <p className="text-sm text-red-600">{error}</p>;
-  if (!leadReport || !staffReport || !partnerReport || !monthly) return <Spinner />;
+  if (!leadReport || !staffReport || !partnerReport || !monthly || !propertyEngagement || !buyerBehavior) return <Spinner />;
 
   const maxMonth = Math.max(...monthly.map((m) => m.total), 1);
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-lg font-semibold">Reports</h1>
-        <div className="flex items-center gap-2 text-sm">
-          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-auto" />
-          <span className="text-slate-400">to</span>
-          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-auto" />
-          {(from || to) && <Button variant="secondary" size="sm" onClick={() => { setFrom(""); setTo(""); }}>Clear</Button>}
-        </div>
-      </div>
+      <PageHeader
+        icon={TrendingUpIcon}
+        title="Reports & Analytics"
+        subtitle="Performance across leads, staff, partners, and inventory"
+        actions={
+          <div className="flex items-center gap-2 text-sm">
+            <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-auto" />
+            <span className="text-slate-400">to</span>
+            <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-auto" />
+            {(from || to) && <Button variant="secondary" size="sm" onClick={() => { setFrom(""); setTo(""); }}>Clear</Button>}
+          </div>
+        }
+      />
 
       {/* Monthly trend */}
       <Card className="p-4">
@@ -85,9 +100,17 @@ export default function ReportsPage() {
             ))}
           </div>
         )}
-        <div className="mt-2 flex gap-4 text-xs text-slate-500">
-          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-brand-400" />Total</span>
-          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-400" />Converted</span>
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+          <div className="flex gap-4">
+            <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-brand-400" />Total</span>
+            <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-emerald-400" />Converted</span>
+          </div>
+          <span>
+            Pipeline value (this period's budgets):{" "}
+            <span className="font-semibold text-slate-700">
+              {monthly.reduce((sum, m) => sum + m.pipelineValue, 0).toLocaleString("en-IN")}
+            </span>
+          </span>
         </div>
       </Card>
 
@@ -134,6 +157,7 @@ export default function ReportsPage() {
                 <th className="px-4 py-2.5 text-right">Conv. rate</th>
                 <th className="px-4 py-2.5 text-right">WhatsApp sent</th>
                 <th className="px-4 py-2.5 text-right">Partner shares</th>
+                <th className="px-4 py-2.5 text-right">Site visits done</th>
               </tr>
             </thead>
             <tbody>
@@ -145,6 +169,7 @@ export default function ReportsPage() {
                   <td className="px-4 py-2.5 text-right">{r.conversionRate}%</td>
                   <td className="px-4 py-2.5 text-right">{r.whatsappSent}</td>
                   <td className="px-4 py-2.5 text-right">{r.partnerShares}</td>
+                  <td className="px-4 py-2.5 text-right">{r.siteVisitsCompleted}</td>
                 </tr>
               ))}
             </tbody>
@@ -178,6 +203,56 @@ export default function ReportsPage() {
                   </td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* Buyer behavior */}
+      <Card className="p-4">
+        <h3 className="mb-3 text-sm font-semibold">Buyer behavior</h3>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            ["Repeat inquirers", buyerBehavior.repeatInquirers],
+            ["Converted leads", buyerBehavior.convertedLeadCount],
+            ["Avg. decision time", `${buyerBehavior.avgDecisionDays}d`],
+            ["Avg. shortlist size", buyerBehavior.avgShortlistSize],
+          ].map(([label, value]) => (
+            <div key={label as string} className="rounded-lg bg-slate-50 p-3 text-center">
+              <div className="text-lg font-semibold text-slate-800">{value}</div>
+              <div className="text-xs text-slate-500">{label}</div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      {/* Property engagement */}
+      <Card>
+        <div className="border-b border-slate-200 px-4 py-3"><h3 className="text-sm font-semibold">Property engagement</h3></div>
+        <div className="max-h-96 overflow-x-auto overflow-y-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200 text-left text-xs uppercase text-slate-500">
+                <th className="px-4 py-2.5">Property</th>
+                <th className="px-4 py-2.5">Location</th>
+                <th className="px-4 py-2.5">Status</th>
+                <th className="px-4 py-2.5 text-right">Views</th>
+                <th className="px-4 py-2.5 text-right">Shortlisted</th>
+              </tr>
+            </thead>
+            <tbody>
+              {propertyEngagement.slice(0, 25).map((r) => (
+                <tr key={r.propertyId} className="border-b border-slate-100">
+                  <td className="px-4 py-2.5 font-medium">{r.title}</td>
+                  <td className="px-4 py-2.5 text-slate-500">{r.location}</td>
+                  <td className="px-4 py-2.5 text-slate-500">{labelize(r.status)}</td>
+                  <td className="px-4 py-2.5 text-right">{r.views}</td>
+                  <td className="px-4 py-2.5 text-right">{r.shortlists}</td>
+                </tr>
+              ))}
+              {propertyEngagement.length === 0 && (
+                <tr><td colSpan={5} className="px-4 py-6 text-center text-slate-400">No property views recorded yet.</td></tr>
+              )}
             </tbody>
           </table>
         </div>

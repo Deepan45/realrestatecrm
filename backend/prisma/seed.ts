@@ -84,6 +84,22 @@ async function main() {
       name: "Partner transfer notification",
       body: "Hi {{name}}, to serve you better we've connected you with our specialist partner team. They will contact you shortly with tailored options. — {{agent}}",
     },
+    // Automated stage-triggered messages (sent by the pipeline automation service, not chosen manually)
+    {
+      key: "site_visit_before",
+      name: "Site visit confirmation (auto)",
+      body: "Hi {{name}}! 👋 Confirming your site visit scheduled for {{time}}. {{agent}} will meet you there — see you soon!",
+    },
+    {
+      key: "site_visit_feedback",
+      name: "Site visit feedback request (auto)",
+      body: "Hi {{name}}, thanks for visiting the property today! We'd love your feedback — what did you think, and are you considering it further? — {{agent}}",
+    },
+    {
+      key: "registration_testimonial",
+      name: "Registration testimonial & referral (auto)",
+      body: "Congratulations {{name}} on your new home! 🎉 We'd be grateful for a short testimonial, and if you know anyone else house-hunting, we'd love an introduction. — {{agent}}",
+    },
   ];
   for (const t of templates) {
     await prisma.whatsAppTemplate.upsert({ where: { key: t.key }, update: { body: t.body }, create: t });
@@ -197,7 +213,7 @@ async function main() {
       budgetMin: 35000000, budgetMax: 45000000, currency: "INR",
       propertyType: PropertyType.VILLA, bedrooms: 4,
       visaRequired: false,
-      source: LeadSource.REFERRAL, status: LeadStatus.INTERESTED, stage: PipelineStage.INTERESTED_SITE_VISIT,
+      source: LeadSource.REFERRAL, status: LeadStatus.INTERESTED, stage: PipelineStage.SITE_VISIT_SCHEDULED,
       priority: Priority.URGENT, assignedToId: staff2.id, createdById: manager.id,
       followUpAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
       requirementNotes: "Business owner, wants an independent villa on ECR for own stay. Site visit planned this weekend.",
@@ -225,6 +241,29 @@ async function main() {
       priority: Priority.MEDIUM, assignedToId: staff1.id, createdById: manager.id,
       partnerCompanyId: partnerA.id,
       requirementNotes: "Wants a gated-community villa near Saravanampatti IT parks for family.",
+    },
+    {
+      id: "seed-lead-6",
+      fullName: "Meena Sundaram", mobile: "+919894123456", whatsappNumber: "+919894123456",
+      email: "meena.s@example.com", country: "India", city: "Chennai", preferredArea: "Anna Nagar",
+      budgetMin: 15000000, budgetMax: 20000000, currency: "INR",
+      propertyType: PropertyType.APARTMENT, bedrooms: 3,
+      visaRequired: false,
+      source: LeadSource.WEBSITE_FORM, status: LeadStatus.NEGOTIATION, stage: PipelineStage.BANK_LOAN,
+      priority: Priority.HIGH, assignedToId: staff1.id, createdById: manager.id,
+      requirementNotes: "Price agreed on seed-prop-1; home loan application submitted, awaiting bank sanction letter.",
+    },
+    {
+      id: "seed-lead-7",
+      fullName: "Ganesh Iyer", mobile: "+919843567890", whatsappNumber: "+919843567890",
+      email: "ganesh.iyer@example.com", country: "India", city: "Chennai", preferredArea: "Velachery",
+      budgetMin: 7500000, budgetMax: 9000000, currency: "INR",
+      propertyType: PropertyType.APARTMENT, bedrooms: 2,
+      visaRequired: false,
+      source: LeadSource.REFERRAL, status: LeadStatus.CONVERTED, stage: PipelineStage.REGISTRATION,
+      priority: Priority.MEDIUM, assignedToId: staff2.id, createdById: manager.id,
+      convertedAt: new Date(),
+      requirementNotes: "Sale deed registration scheduled at the sub-registrar office.",
     },
   ];
   for (const l of leadData) {
@@ -259,6 +298,21 @@ async function main() {
     where: { key: "currencies" },
     update: { value: ["INR", "USD", "AED", "EUR"] },
     create: { key: "currencies", value: ["INR", "USD", "AED", "EUR"] },
+  });
+
+  // ── Blog ──────────────────────────────────────────────────────────
+  await prisma.blogPost.upsert({
+    where: { slug: "chennai-property-market-outlook-2026" },
+    update: {},
+    create: {
+      slug: "chennai-property-market-outlook-2026",
+      title: "Chennai Property Market Outlook 2026",
+      excerpt: "OMR and Velachery keep leading demand, while ECR sees a surge in villa enquiries.",
+      body: "Chennai's residential market continues its steady climb in 2026, led by the IT corridor (OMR, Velachery, Sholinganallur) where rental demand from working professionals remains strong. Meanwhile, ECR has seen a notable uptick in villa enquiries from buyers seeking weekend homes and NRI investors returning to the market.\n\nAnna Nagar and T. Nagar remain the go-to choices for end-users wanting established infrastructure, while Coimbatore's Saravanampatti corridor is emerging as a value pick for gated-community villas near the growing IT park cluster.\n\nOur advice for buyers: lock in ready-to-move inventory in the IT corridor now, and negotiate on plot-based ECR villas where inventory has grown faster than demand.",
+      isPublished: true,
+      publishedAt: new Date(),
+      authorId: manager.id,
+    },
   });
 
   console.log("Seed complete.");

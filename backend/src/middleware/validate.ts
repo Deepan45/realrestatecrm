@@ -1,8 +1,8 @@
 import { NextFunction, Request, Response } from "express";
-import { AnyZodObject, ZodError } from "zod";
+import { ZodError, ZodTypeAny } from "zod";
 
 /** Validate req.body (or query) against a zod schema; replaces it with the parsed value. */
-export function validate(schema: AnyZodObject, target: "body" | "query" = "body") {
+export function validate(schema: ZodTypeAny, target: "body" | "query" = "body") {
   return (req: Request, res: Response, next: NextFunction) => {
     try {
       const parsed = schema.parse(req[target]);

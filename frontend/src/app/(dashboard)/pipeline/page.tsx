@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import { Badge, ErrorBanner, Spinner } from "@/components/ui";
+import { Badge, ErrorBanner, PageHeader, Spinner } from "@/components/ui";
+import { KanbanIcon } from "@/components/icons";
 import { Lead, PIPELINE_STAGES, PipelineStage, fmtMoney, labelize } from "@/lib/types";
 
 type Board = Record<string, Lead[]>;
@@ -15,10 +16,12 @@ const STAGE_COLORS: Record<string, string> = {
   PROPERTY_MATCHING: "border-t-indigo-400",
   PROPERTY_SHARED: "border-t-violet-400",
   FOLLOW_UP_PENDING: "border-t-amber-400",
-  INTERESTED_SITE_VISIT: "border-t-emerald-400",
+  SITE_VISIT_SCHEDULED: "border-t-emerald-400",
+  SITE_VISIT_COMPLETED: "border-t-lime-500",
   NEGOTIATION: "border-t-orange-400",
+  BANK_LOAN: "border-t-teal-400",
   SHARED_TO_PARTNER: "border-t-fuchsia-400",
-  CONVERTED: "border-t-green-500",
+  REGISTRATION: "border-t-green-500",
   LOST_CLOSED: "border-t-slate-300",
 };
 
@@ -55,10 +58,11 @@ export default function PipelinePage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Pipeline board</h1>
-        <p className="text-xs text-slate-500">Drag cards between stages</p>
-      </div>
+      <PageHeader
+        icon={KanbanIcon}
+        title="Pipeline Board"
+        subtitle="Drag cards between stages — statuses and automations follow"
+      />
       <ErrorBanner message={error} />
       <div className="flex gap-3 overflow-x-auto pb-4">
         {PIPELINE_STAGES.map((stage) => {

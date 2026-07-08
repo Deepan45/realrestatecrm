@@ -19,6 +19,9 @@ import { UPLOAD_DIR, fileUpload, imageUpload, videoUpload } from "../../middlewa
 import path from "path";
 import { audit } from "../../services/audit.service";
 import { notify } from "../../services/notification.service";
+import { pushPropertyToWebsite } from "../../services/propertySync.service";
+import { toCsv } from "../../lib/csv";
+import { extractYouTubeId } from "../../lib/youtube";
 
 const router = Router();
 router.use(requireAuth);
@@ -38,6 +41,9 @@ const propertySchema = z.object({
   currency: z.string().default("INR"),
   description: z.string().optional().nullable(),
   videoUrl: z.string().optional().nullable().or(z.literal("")),
+  youtubeUrl: z.string().optional().nullable().or(z.literal("")),
+  latitude: z.coerce.number().min(-90).max(90).optional().nullable(),
+  longitude: z.coerce.number().min(-180).max(180).optional().nullable(),
   status: z.nativeEnum(AvailabilityStatus).default(AvailabilityStatus.AVAILABLE),
   ownerName: z.string().optional().nullable(),
   contactName: z.string().optional().nullable(),
@@ -104,6 +110,24 @@ router.get("/", async (req, res, next) => {
   }
 });
 
+// ── CSV export (Super Admin only — bulk data export is a governance control).
+// Must be registered before GET "/:id" or Express would match "/export" as an id. ──
+router.get("/export", requireRole(), async (req, res, next) => {
+  try {
+    const properties = await prisma.property.findMany({ orderBy: { createdAt: "desc" } });
+    const csv = toCsv(properties, [
+      "id", "title", "type", "category", "location", "address", "areaSqft", "bedrooms", "bathrooms",
+      "furnishing", "price", "currency", "status", "ownerName", "contactName", "contactPhone", "createdAt",
+    ]);
+    await audit(req.user!.id, "properties_exported", "property", undefined, { count: properties.length });
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename="properties-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send(csv);
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.get("/:id", async (req, res, next) => {
   try {
     const property = await prisma.property.findUnique({
@@ -111,6 +135,8 @@ router.get("/:id", async (req, res, next) => {
       include: { ...includeImages, assignedTo: { select: { id: true, name: true } } },
     });
     if (!property) throw notFound("Property");
+    // Fire-and-forget engagement tracking for the property-engagement report — never blocks the response.
+    prisma.propertyViewEvent.create({ data: { propertyId: property.id, source: "dashboard" } }).catch(() => {});
     res.json({ data: property });
   } catch (err) {
     next(err);
@@ -120,11 +146,15 @@ router.get("/:id", async (req, res, next) => {
 // ── Create / update / delete (property staff + managers) ─────────────
 router.post("/", requireRole(...propertyEditors), validate(propertySchema), async (req, res, next) => {
   try {
+    if (req.body.youtubeUrl && !extractYouTubeId(req.body.youtubeUrl)) {
+      throw badRequest("Enter a valid YouTube video URL or embed link");
+    }
     const property = await prisma.property.create({
-      data: { ...req.body, videoUrl: req.body.videoUrl || null, assignedToId: req.user!.id },
+      data: { ...req.body, videoUrl: req.body.videoUrl || null, youtubeUrl: req.body.youtubeUrl || null, assignedToId: req.user!.id },
       include: { ...includeImages, assignedTo: { select: { id: true, name: true } } },
     });
     await audit(req.user!.id, "property_created", "property", property.id, { title: property.title });
+    pushPropertyToWebsite(property, "created");
     res.status(201).json({ data: property });
   } catch (err) {
     next(err);
@@ -133,14 +163,22 @@ router.post("/", requireRole(...propertyEditors), validate(propertySchema), asyn
 
 router.put("/:id", requireRole(...propertyEditors), validate(propertySchema.partial()), async (req, res, next) => {
   try {
+    if (req.body.youtubeUrl && !extractYouTubeId(req.body.youtubeUrl)) {
+      throw badRequest("Enter a valid YouTube video URL or embed link");
+    }
     const before = await prisma.property.findUnique({ where: { id: req.params.id } });
     if (!before) throw notFound("Property");
     const property = await prisma.property.update({
       where: { id: req.params.id },
-      data: { ...req.body, ...(req.body.videoUrl !== undefined ? { videoUrl: req.body.videoUrl || null } : {}) },
+      data: {
+        ...req.body,
+        ...(req.body.videoUrl !== undefined ? { videoUrl: req.body.videoUrl || null } : {}),
+        ...(req.body.youtubeUrl !== undefined ? { youtubeUrl: req.body.youtubeUrl || null } : {}),
+      },
       include: { ...includeImages, assignedTo: { select: { id: true, name: true } } },
     });
     await audit(req.user!.id, "property_updated", "property", property.id);
+    pushPropertyToWebsite(property, "updated");
 
     // Notify staff with this property shortlisted when availability changes
     if (req.body.status && req.body.status !== before.status) {
@@ -168,8 +206,9 @@ router.put("/:id", requireRole(...propertyEditors), validate(propertySchema.part
 
 router.delete("/:id", requireRole(...propertyEditors), async (req, res, next) => {
   try {
-    await prisma.property.delete({ where: { id: req.params.id } });
+    const property = await prisma.property.delete({ where: { id: req.params.id } });
     await audit(req.user!.id, "property_deleted", "property", req.params.id);
+    pushPropertyToWebsite(property, "deleted");
     res.json({ message: "Property deleted" });
   } catch (err) {
     next(err);

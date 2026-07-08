@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { api, resolveMediaUrl } from "@/lib/api";
 import { Button, ErrorBanner, Field, Input, Select, Textarea } from "@/components/ui";
 import { AVAILABILITY, FURNISHING, PROPERTY_CATEGORIES, PROPERTY_TYPES, Property, labelize } from "@/lib/types";
-import { UploadIcon, XIcon } from "@/components/icons";
+import { MapPinIcon, UploadIcon, XIcon } from "@/components/icons";
+import { extractYouTubeId } from "@/lib/youtube";
 
 export default function PropertyForm({ initial, onSaved }: { initial?: Property; onSaved?: (p: Property) => void }) {
   const isEdit = !!initial;
@@ -33,7 +34,11 @@ export default function PropertyForm({ initial, onSaved }: { initial?: Property;
     ownerName: initial?.ownerName ?? "",
     contactName: initial?.contactName ?? "",
     contactPhone: initial?.contactPhone ?? "",
+    youtubeUrl: initial?.youtubeUrl ?? "",
+    latitude: initial?.latitude?.toString() ?? "",
+    longitude: initial?.longitude?.toString() ?? "",
   });
+  const [locating, setLocating] = useState(false);
 
   function set<K extends keyof typeof form>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -56,7 +61,15 @@ export default function PropertyForm({ initial, onSaved }: { initial?: Property;
       ownerName: form.ownerName || null,
       contactName: form.contactName || null,
       contactPhone: form.contactPhone || null,
+      youtubeUrl: form.youtubeUrl || null,
+      latitude: form.latitude ? Number(form.latitude) : null,
+      longitude: form.longitude ? Number(form.longitude) : null,
     };
+    if (form.youtubeUrl && !extractYouTubeId(form.youtubeUrl)) {
+      setError("Enter a valid YouTube video URL or embed link");
+      setBusy(false);
+      return;
+    }
     try {
       const res = isEdit
         ? await api.put<{ data: Property }>(`/properties/${initial!.id}`, payload)
@@ -108,6 +121,24 @@ export default function PropertyForm({ initial, onSaved }: { initial?: Property;
     await api.del(`/properties/${initial.id}/video`).catch(() => {});
     setVideoUrl(null);
   }
+
+  function useMyLocation() {
+    if (!navigator.geolocation) return setError("Geolocation is not available in this browser");
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        set("latitude", pos.coords.latitude.toFixed(6));
+        set("longitude", pos.coords.longitude.toFixed(6));
+        setLocating(false);
+      },
+      (err) => {
+        setError(err.message || "Could not get your location");
+        setLocating(false);
+      }
+    );
+  }
+
+  const mapsUrl = form.latitude && form.longitude ? `https://www.google.com/maps?q=${form.latitude},${form.longitude}` : null;
 
   return (
     <form onSubmit={submit} className="space-y-4">
@@ -176,6 +207,32 @@ export default function PropertyForm({ initial, onSaved }: { initial?: Property;
       <Field label="Description">
         <Textarea rows={4} value={form.description ?? ""} onChange={(e) => set("description", e.target.value)} />
       </Field>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Field label="YouTube video link">
+          <Input
+            value={form.youtubeUrl}
+            onChange={(e) => set("youtubeUrl", e.target.value)}
+            placeholder="https://youtube.com/watch?v=…"
+          />
+        </Field>
+        <Field label="Latitude">
+          <Input type="number" step="any" value={form.latitude} onChange={(e) => set("latitude", e.target.value)} placeholder="13.083700" />
+        </Field>
+        <Field label="Longitude">
+          <Input type="number" step="any" value={form.longitude} onChange={(e) => set("longitude", e.target.value)} placeholder="80.270700" />
+        </Field>
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" variant="secondary" size="sm" onClick={useMyLocation} disabled={locating}>
+          <MapPinIcon className="h-3.5 w-3.5" /> {locating ? "Locating…" : "Use my current location"}
+        </Button>
+        {mapsUrl && (
+          <a href={mapsUrl} target="_blank" rel="noreferrer" className="text-xs text-brand-600 hover:underline">
+            Open pinned location in Google Maps →
+          </a>
+        )}
+      </div>
 
       {isEdit && (
         <div>

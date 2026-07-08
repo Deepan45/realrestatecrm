@@ -2,6 +2,8 @@
 
 Full-stack CRM for a real estate + visa lead business: lead capture, pipeline management, property inventory, a property-matching engine, WhatsApp property sharing, and Level-2 partner lead distribution.
 
+📄 **[Functional specification](docs/FUNCTIONAL_SPEC.md)** — roles & permissions matrix, module-by-module behaviour, workflows, and business rules.
+
 ## Stack
 
 | Layer | Tech |

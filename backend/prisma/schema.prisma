@@ -26,6 +26,7 @@ enum LeadSource {
   WHATSAPP
   IMPORT
   PARTNER
+  META_ADS
 }
 
 enum LeadStatus {
@@ -48,10 +49,12 @@ enum PipelineStage {
   PROPERTY_MATCHING
   PROPERTY_SHARED
   FOLLOW_UP_PENDING
-  INTERESTED_SITE_VISIT
+  SITE_VISIT_SCHEDULED
+  SITE_VISIT_COMPLETED
   NEGOTIATION
+  BANK_LOAN
   SHARED_TO_PARTNER
-  CONVERTED
+  REGISTRATION
   LOST_CLOSED
 }
 
@@ -173,6 +176,7 @@ model User {
   notifications      Notification[]
   auditLogs          AuditLog[]
   shortlists         PropertyMatch[]
+  blogPosts          BlogPost[]
 
   @@index([role])
   @@index([partnerCompanyId])
@@ -299,23 +303,44 @@ model Property {
   currency     String             @default("INR")
   description  String?
   videoUrl     String?
+  youtubeUrl   String?
+  latitude     Float?
+  longitude    Float?
   status       AvailabilityStatus @default(AVAILABLE)
   ownerName    String?
   contactName  String?
   contactPhone String?
   assignedTo   User?              @relation(fields: [assignedToId], references: [id])
   assignedToId String?
+  // Set when this property is synced in from the public-facing website rather than
+  // created directly in the CRM; used to upsert on repeat inbound syncs instead of duplicating.
+  externalId     String?   @unique
+  externalSource String?
+  lastSyncedAt   DateTime?
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
 
   images       PropertyImage[]
   matches      PropertyMatch[]
+  viewEvents   PropertyViewEvent[]
 
   @@index([type])
   @@index([category])
   @@index([status])
   @@index([location])
   @@index([price])
+}
+
+// Lightweight engagement tracking — one row per property-detail view, used for
+// the "which listings get traction" analytics report. No PII beyond a rough source tag.
+model PropertyViewEvent {
+  id         String   @id @default(cuid())
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  propertyId String
+  source     String?
+  createdAt  DateTime @default(now())
+
+  @@index([propertyId, createdAt])
 }
 
 model PropertyImage {
@@ -444,4 +469,23 @@ model Setting {
   key       String   @id
   value     Json
   updatedAt DateTime @updatedAt
+}
+
+// ─── Public site / marketing ────────────────────────────────────────
+
+model BlogPost {
+  id            String    @id @default(cuid())
+  slug          String    @unique
+  title         String
+  excerpt       String?
+  coverImageUrl String?
+  body          String
+  isPublished   Boolean   @default(false)
+  publishedAt   DateTime?
+  author        User?     @relation(fields: [authorId], references: [id])
+  authorId      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([isPublished, publishedAt])
 }

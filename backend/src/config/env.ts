@@ -34,4 +34,22 @@ export const env = {
     pass: process.env.SMTP_PASS || "",
     from: process.env.MAIL_FROM || "RealRest CRM <noreply@realrest.example>",
   },
+  clientUrl: (process.env.CLIENT_URL || "").replace(/\/$/, ""),
+  // Bi-directional sync with the public marketing website's property catalog.
+  // Unconfigured by default — outbound pushes no-op (logged) and the inbound
+  // webhook returns 503 until both are set.
+  websiteSync: {
+    apiUrl: (process.env.WEBSITE_API_URL || "").replace(/\/$/, ""),
+    apiKey: process.env.WEBSITE_API_KEY || "",
+    webhookSecret: process.env.WEBSITE_WEBHOOK_SECRET || "",
+  },
+  // Shared-secret auth for generic inbound lead webhooks (contact forms, CTA
+  // pop-ups, WhatsApp click-to-chat relays). Unset = webhook endpoints reject all calls.
+  leadWebhookSecret: process.env.LEAD_WEBHOOK_SECRET || "",
+  meta: {
+    verifyToken: process.env.META_VERIFY_TOKEN || "",
+    appSecret: process.env.META_APP_SECRET || "",
+    pageAccessToken: process.env.META_PAGE_ACCESS_TOKEN || "",
+    graphApiUrl: process.env.META_GRAPH_API_URL || "https://graph.facebook.com/v19.0",
+  },
 };

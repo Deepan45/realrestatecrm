@@ -1,6 +1,7 @@
 import { Router } from "express";
 import fs from "fs";
 import { parse } from "csv-parse/sync";
+import { z } from "zod";
 import {
   ActivityType,
   LeadSource,
@@ -15,6 +16,10 @@ import {
 import { prisma } from "../../lib/prisma";
 import { badRequest, forbidden, HttpError, notFound } from "../../lib/errors";
 import { resolveMediaUrl } from "../../lib/media";
+import { maskPhone } from "../../lib/mask";
+import { toCsv } from "../../lib/csv";
+import { requireWebhookSecret, verifyMetaSignature } from "../../lib/webhookAuth";
+import { env } from "../../config/env";
 import { AuthUser, requireAuth, requireRole, salesTeam } from "../../middleware/auth";
 import { validate } from "../../middleware/validate";
 import { fileUpload } from "../../middleware/upload";
@@ -23,6 +28,7 @@ import { notify } from "../../services/notification.service";
 import { audit } from "../../services/audit.service";
 import { matchPropertiesForLead } from "../../services/matching.service";
 import { renderTemplate, whatsappProvider } from "../../services/whatsapp.service";
+import { runStageAutomation } from "../../services/pipelineAutomation.service";
 import {
   assignSchema,
   captureLeadSchema,
@@ -70,6 +76,17 @@ async function getLeadScoped(id: string, user: AuthUser) {
   return lead;
 }
 
+/** Partner users get masked client numbers everywhere; the audited reveal endpoint
+ * (POST /partners/shares/:id/reveal-phone) is the only way to see the real digits. */
+function maskForPartner<T extends { mobile: string; whatsappNumber: string | null }>(lead: T, user: AuthUser): T {
+  if (user.role !== Role.PARTNER_USER) return lead;
+  return {
+    ...lead,
+    mobile: maskPhone(lead.mobile),
+    whatsappNumber: lead.whatsappNumber ? maskPhone(lead.whatsappNumber) : null,
+  };
+}
+
 // ── Public capture endpoint (visa form / website form) — no auth ────
 // Simple in-memory rate limit: 20 submissions per IP per 10 minutes.
 const captureHits = new Map<string, { count: number; resetAt: number }>();
@@ -113,7 +130,158 @@ router.post("/capture", captureRateLimit, validate(captureLeadSchema), async (re
   }
 });
 
+// ── Omnichannel inbound webhooks — no auth, secret/signature-verified ────────
+// Shared creation path so every channel gets the same manager-alert + activity-log treatment.
+async function createWebhookLead(data: {
+  fullName: string; mobile: string; email?: string | null; source: keyof typeof LeadSource;
+  requirementNotes?: string | null; whatsappNumber?: string | null;
+}) {
+  const lead = await prisma.lead.create({
+    data: {
+      fullName: data.fullName,
+      mobile: data.mobile,
+      whatsappNumber: data.whatsappNumber || data.mobile,
+      email: data.email || null,
+      requirementNotes: data.requirementNotes || null,
+      source: LeadSource[data.source],
+    },
+  });
+  await logActivity(lead.id, null, ActivityType.LEAD_CREATED, `Lead captured from ${lead.source}`);
+  const managers = await prisma.user.findMany({
+    where: { role: { in: [Role.SALES_MANAGER, Role.SUPER_ADMIN] }, isActive: true },
+  });
+  await Promise.all(
+    managers.map((m) =>
+      notify({
+        userId: m.id,
+        type: NotificationType.GENERAL,
+        title: `New ${lead.source.replace("_", " ").toLowerCase()} lead: ${lead.fullName}`,
+        meta: { leadId: lead.id },
+      })
+    )
+  );
+  return lead;
+}
+
+// Generic website form webhook: contact forms, CTA pop-ups, co-founder profile sections, etc.
+// The exact JSON shape varies by widget, so field names are matched loosely.
+const websiteWebhookSchema = z.object({
+  name: z.string().optional(),
+  fullName: z.string().optional(),
+  phone: z.string().optional(),
+  mobile: z.string().optional(),
+  email: z.string().optional(),
+  message: z.string().optional(),
+  formName: z.string().optional(),
+}).refine((d) => !!(d.name || d.fullName), { message: "name (or fullName) is required" })
+  .refine((d) => !!(d.phone || d.mobile), { message: "phone (or mobile) is required" });
+
+router.post(
+  "/webhook/website",
+  requireWebhookSecret(() => env.leadWebhookSecret),
+  validate(websiteWebhookSchema),
+  async (req, res, next) => {
+    try {
+      const b = req.body as z.infer<typeof websiteWebhookSchema>;
+      const lead = await createWebhookLead({
+        fullName: (b.name || b.fullName)!,
+        mobile: (b.phone || b.mobile)!,
+        email: b.email,
+        source: "WEBSITE_FORM",
+        requirementNotes: [b.formName ? `Form: ${b.formName}` : null, b.message || null].filter(Boolean).join(" — ") || null,
+      });
+      res.status(201).json({ data: { id: lead.id }, message: "Lead received" });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// WhatsApp click-to-chat: the website's "Chat on WhatsApp" button relays the click here.
+const whatsappClickSchema = z.object({
+  phone: z.string().min(5),
+  sourcePage: z.string().optional(),
+});
+
+router.post(
+  "/webhook/whatsapp-click",
+  requireWebhookSecret(() => env.leadWebhookSecret),
+  validate(whatsappClickSchema),
+  async (req, res, next) => {
+    try {
+      const { phone, sourcePage } = req.body as z.infer<typeof whatsappClickSchema>;
+      const lead = await createWebhookLead({
+        fullName: `WhatsApp enquiry (${phone})`,
+        mobile: phone,
+        source: "WHATSAPP",
+        requirementNotes: sourcePage ? `Click-to-chat from: ${sourcePage}` : "Click-to-chat",
+      });
+      res.status(201).json({ data: { id: lead.id }, message: "Lead received" });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+// Meta Lead Ads (Facebook/Instagram). GET = webhook verification handshake; POST = lead event.
+router.get("/webhook/meta", (req, res) => {
+  const mode = req.query["hub.mode"];
+  const token = req.query["hub.verify_token"];
+  const challenge = req.query["hub.challenge"];
+  if (mode === "subscribe" && env.meta.verifyToken && token === env.meta.verifyToken) {
+    res.status(200).send(challenge);
+  } else {
+    res.sendStatus(403);
+  }
+});
+
+router.post("/webhook/meta", async (req, res, next) => {
+  try {
+    if (!env.meta.appSecret || !env.meta.pageAccessToken) return res.sendStatus(503);
+    const signature = req.header("x-hub-signature-256");
+    if (!verifyMetaSignature(req.rawBody, signature, env.meta.appSecret)) return res.sendStatus(401);
+
+    const entries = (req.body?.entry ?? []) as { changes?: { value?: { leadgen_id?: string } }[] }[];
+    const leadgenIds = entries.flatMap((e) => e.changes ?? []).map((c) => c.value?.leadgen_id).filter(Boolean) as string[];
+
+    for (const leadgenId of leadgenIds) {
+      try {
+        const fdRes = await fetch(`${env.meta.graphApiUrl}/${leadgenId}?access_token=${env.meta.pageAccessToken}`);
+        const fd = (await fdRes.json()) as { field_data?: { name: string; values: string[] }[] };
+        const get = (key: string) => fd.field_data?.find((f) => f.name === key)?.values?.[0];
+        const fullName = get("full_name") || [get("first_name"), get("last_name")].filter(Boolean).join(" ");
+        const phone = get("phone_number");
+        if (!fullName || !phone) continue;
+        await createWebhookLead({ fullName, mobile: phone, email: get("email"), source: "META_ADS" });
+      } catch (err) {
+        console.error(`[leads:webhook:meta] failed to fetch/create lead for ${leadgenId}:`, err instanceof Error ? err.message : err);
+      }
+    }
+    res.sendStatus(200);
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.use(requireAuth);
+
+// ── CSV export (Super Admin only — bulk data export is a governance control) ──
+router.get("/export", requireRole(), async (req, res, next) => {
+  try {
+    const leads = await prisma.lead.findMany({ where: scopeFor(req.user!), orderBy: { createdAt: "desc" } });
+    const csv = toCsv(leads, [
+      "id", "fullName", "mobile", "whatsappNumber", "email", "country", "city", "preferredArea",
+      "budgetMin", "budgetMax", "currency", "propertyType", "bedrooms", "source", "status", "stage",
+      "priority", "followUpAt", "createdAt",
+    ]);
+    await audit(req.user!.id, "leads_exported", "lead", undefined, { count: leads.length });
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename="leads-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send(csv);
+  } catch (err) {
+    next(err);
+  }
+});
 
 // ── List with filters + pagination ──────────────────────────────────
 router.get("/", async (req, res, next) => {
@@ -172,7 +340,7 @@ router.get("/", async (req, res, next) => {
         take,
       }),
     ]);
-    res.json({ data, total, page: Number(page), pageSize: take });
+    res.json({ data: data.map((l) => maskForPartner(l, req.user!)), total, page: Number(page), pageSize: take });
   } catch (err) {
     next(err);
   }
@@ -189,7 +357,7 @@ router.get("/board", async (req, res, next) => {
     });
     const board: Record<string, typeof leads> = {};
     for (const stage of Object.values(PipelineStage)) board[stage] = [];
-    for (const lead of leads) board[lead.stage].push(lead);
+    for (const lead of leads) board[lead.stage].push(maskForPartner(lead, req.user!));
     res.json({ data: board });
   } catch (err) {
     next(err);
@@ -265,6 +433,42 @@ router.post("/import", requireRole(...salesTeam), fileUpload.single("file"), asy
   }
 });
 
+// ── Bulk offline-campaign import (columns: Name,Phone,Address only) ──────────
+router.post("/import-basic", requireRole(...salesTeam), fileUpload.single("file"), async (req, res, next) => {
+  try {
+    if (!req.file) throw badRequest("CSV file is required (field name: file)");
+    const rows: Record<string, string>[] = parse(fs.readFileSync(req.file.path), {
+      columns: (header: string[]) => header.map((h) => h.trim().toLowerCase()),
+      skip_empty_lines: true,
+      trim: true,
+    });
+    let created = 0;
+    const errors: { row: number; message: string }[] = [];
+    for (const [i, row] of rows.entries()) {
+      try {
+        if (!row.name || !row.phone) throw new Error("Name and Phone are required");
+        await prisma.lead.create({
+          data: {
+            fullName: row.name,
+            mobile: row.phone,
+            whatsappNumber: row.phone,
+            requirementNotes: row.address ? `Address: ${row.address}` : null,
+            source: LeadSource.IMPORT,
+            createdById: req.user!.id,
+          },
+        });
+        created++;
+      } catch (e) {
+        errors.push({ row: i + 2, message: e instanceof Error ? e.message : "Invalid row" });
+      }
+    }
+    await audit(req.user!.id, "leads_imported_basic", "lead", undefined, { created, failed: errors.length });
+    res.json({ created, failed: errors.length, errors: errors.slice(0, 20) });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── Detail ───────────────────────────────────────────────────────────
 router.get("/:id", async (req, res, next) => {
   try {
@@ -280,7 +484,7 @@ router.get("/:id", async (req, res, next) => {
       });
       return res.json({
         data: {
-          ...lead,
+          ...maskForPartner(lead, req.user!),
           notes: [],
           activities: [],
           pipelineHistory: [],
@@ -352,23 +556,34 @@ router.put("/:id", validate(updateLeadSchema), async (req, res, next) => {
     }
     const lead = await prisma.lead.update({ where: { id: existing.id }, data, include: leadInclude });
     await logActivity(lead.id, req.user!.id, ActivityType.LEAD_UPDATED, "Lead details updated");
+    if (data.stage && data.stage !== existing.stage) {
+      await runStageAutomation(lead, data.stage as PipelineStage, { id: req.user!.id, name: req.user!.name });
+    }
     res.json({ data: lead });
   } catch (err) {
     next(err);
   }
 });
 
-// ── Assign ───────────────────────────────────────────────────────────
-router.post("/:id/assign", requireRole(Role.SALES_MANAGER), validate(assignSchema), async (req, res, next) => {
+// ── Assign / cross-assign ─────────────────────────────────────────────
+// Managers can assign any lead to any staff member. Executives can transfer a lead
+// they currently hold to a peer (or back to a manager) — but not touch a colleague's lead.
+router.post("/:id/assign", requireRole(...salesTeam), validate(assignSchema), async (req, res, next) => {
   try {
+    if (req.user!.role === Role.SALES_EXECUTIVE) {
+      const existing = await getLeadScoped(req.params.id, req.user!);
+      if (existing.assignedToId !== req.user!.id) throw forbidden("You can only transfer leads currently assigned to you");
+    }
     const staff = await prisma.user.findUnique({ where: { id: req.body.assignedToId } });
     if (!staff || !staff.isActive) throw badRequest("Selected staff member is not available");
+    if (!salesTeam.includes(staff.role)) throw badRequest("Leads can only be assigned to sales staff");
     const lead = await prisma.lead.update({
       where: { id: req.params.id },
       data: { assignedToId: staff.id },
       include: leadInclude,
     });
-    await logActivity(lead.id, req.user!.id, ActivityType.ASSIGNED, `Assigned to ${staff.name}`);
+    await logActivity(lead.id, req.user!.id, ActivityType.ASSIGNED,
+      req.user!.id === staff.id ? `Assigned to ${staff.name}` : `Transferred to ${staff.name} by ${req.user!.name}`);
     await notify({
       userId: staff.id,
       type: NotificationType.LEAD_ASSIGNED,
@@ -396,7 +611,7 @@ router.post("/:id/change-stage", validate(changeStageSchema), async (req, res, n
       data: {
         stage,
         ...(impliedStatus ? { status: impliedStatus } : {}),
-        ...(stage === PipelineStage.CONVERTED ? { convertedAt: new Date() } : {}),
+        ...(stage === PipelineStage.REGISTRATION ? { convertedAt: new Date() } : {}),
       },
       include: leadInclude,
     });
@@ -404,6 +619,7 @@ router.post("/:id/change-stage", validate(changeStageSchema), async (req, res, n
       data: { leadId: lead.id, fromStage: existing.stage, toStage: stage, changedById: req.user!.id },
     });
     await logActivity(lead.id, req.user!.id, ActivityType.STAGE_CHANGED, `Moved from ${existing.stage} to ${stage}`);
+    await runStageAutomation(lead, stage, { id: req.user!.id, name: req.user!.name });
     res.json({ data: lead });
   } catch (err) {
     next(err);
@@ -637,7 +853,7 @@ router.post("/:id/share-partner", validate(sharePartnerSchema), async (req, res,
         orderBy: { score: "desc" },
         take: 5,
       });
-      const clientUrl = (process.env.CLIENT_URL || "").replace(/\/$/, "");
+      const clientUrl = env.clientUrl;
       const money = (v: unknown) => Number(v).toLocaleString("en-IN");
       // Requirement only — client contact details stay inside the CRM
       const lines: string[] = [

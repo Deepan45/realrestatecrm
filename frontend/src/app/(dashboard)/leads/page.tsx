@@ -3,11 +3,11 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { api, qs } from "@/lib/api";
+import { api, downloadFile, qs } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import LeadForm from "@/components/LeadForm";
 import { Badge, Button, Card, EmptyState, ErrorBanner, Input, Modal, PageHeader, Pagination, Select, Spinner } from "@/components/ui";
-import { UploadCloudIcon, UsersIcon } from "@/components/icons";
+import { DownloadIcon, UploadCloudIcon, UsersIcon } from "@/components/icons";
 import {
   LEAD_SOURCES, LEAD_STATUSES, Lead, PROPERTY_TYPES, Paginated, User,
   fmtDate, fmtMoney, labelize,
@@ -73,6 +73,14 @@ function LeadsContent() {
     }
   }
 
+  async function exportCsv() {
+    try {
+      await downloadFile("/leads/export", `leads-${new Date().toISOString().slice(0, 10)}.csv`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Export failed");
+    }
+  }
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -89,6 +97,7 @@ function LeadsContent() {
               onChange={(e) => e.target.files?.[0] && importCsv(e.target.files[0])}
             />
             <Button variant="secondary" onClick={() => fileRef.current?.click()}><UploadCloudIcon className="mr-1.5 inline h-3.5 w-3.5" />Import CSV</Button>
+            {hasRole() && <Button variant="secondary" onClick={exportCsv}><DownloadIcon className="mr-1.5 inline h-3.5 w-3.5" />Export CSV</Button>}
             <Button onClick={() => setShowCreate(true)}>+ New lead</Button>
           </>
         )}

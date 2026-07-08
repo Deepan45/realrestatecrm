@@ -225,3 +225,41 @@ export const CheckIcon: IconType = (p) => (
     <path d="M20 6 9 17l-5-5" />
   </Svg>
 );
+
+export const MapPinIcon: IconType = (p) => (
+  <Svg {...p}>
+    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+    <circle cx="12" cy="10" r="3" />
+  </Svg>
+);
+
+export const DownloadIcon: IconType = (p) => (
+  <Svg {...p}>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7 10 12 15 17 10" />
+    <line x1="12" x2="12" y1="15" y2="3" />
+  </Svg>
+);
+
+export const EyeIcon: IconType = (p) => (
+  <Svg {...p}>
+    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+    <circle cx="12" cy="12" r="3" />
+  </Svg>
+);
+
+export const NewspaperIcon: IconType = (p) => (
+  <Svg {...p}>
+    <path d="M4 22h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v14a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1 1-2 2-2h2" />
+    <path d="M18 14h-8M18 18h-8M12 6h6v4h-6z" />
+  </Svg>
+);
+
+export const ArrowRightLeftIcon: IconType = (p) => (
+  <Svg {...p}>
+    <path d="m16 3 4 4-4 4" />
+    <path d="M20 7H4" />
+    <path d="m8 21-4-4 4-4" />
+    <path d="M4 17h16" />
+  </Svg>
+);

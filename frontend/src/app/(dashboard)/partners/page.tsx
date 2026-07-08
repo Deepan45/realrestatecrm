@@ -5,7 +5,7 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Badge, Button, Card, EmptyState, ErrorBanner, Field, Input, Modal, PageHeader, Select, Spinner, Textarea } from "@/components/ui";
-import { BriefcaseIcon } from "@/components/icons";
+import { BriefcaseIcon, EyeIcon } from "@/components/icons";
 import { PARTNER_SHARE_STATUSES, PartnerCompany, fmtDate, fmtMoney, labelize } from "@/lib/types";
 
 interface Share {
@@ -36,6 +36,7 @@ export default function PartnersPage() {
   const [editing, setEditing] = useState<PartnerCompany | null>(null);
   const [form, setForm] = useState({ ...emptyForm });
   const [busy, setBusy] = useState(false);
+  const [revealed, setRevealed] = useState<Record<string, string>>({});
 
   const loadPartners = useCallback(() => {
     api.get<{ data: PartnerCompany[] }>("/partners").then((r) => {
@@ -82,6 +83,15 @@ export default function PartnersPage() {
       setError(err instanceof Error ? err.message : "Save failed");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function revealPhone(shareId: string) {
+    try {
+      const res = await api.post<{ data: { mobile: string } }>(`/partners/shares/${shareId}/reveal-phone`);
+      setRevealed((r) => ({ ...r, [shareId]: res.data.mobile }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not reveal number");
     }
   }
 
@@ -160,8 +170,19 @@ export default function PartnersPage() {
                               {s.lead.fullName}
                             </Link>
                           )}
-                          <div className="text-xs text-slate-500">
-                            {s.lead.mobile} · {s.lead.city ?? "—"} · {labelize(s.lead.propertyType)}
+                          <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                            <span>{revealed[s.id] ?? s.lead.mobile}</span>
+                            {isPartner && !revealed[s.id] && (
+                              <button
+                                type="button"
+                                onClick={() => revealPhone(s.id)}
+                                className="inline-flex items-center gap-0.5 text-brand-600 hover:underline"
+                                title="Reveal full number"
+                              >
+                                <EyeIcon className="h-3 w-3" /> reveal
+                              </button>
+                            )}
+                            {" · "}{s.lead.city ?? "—"} · {labelize(s.lead.propertyType)}
                             {s.lead.budgetMax && ` · up to ${fmtMoney(s.lead.budgetMax, s.lead.currency)}`}
                           </div>
                           <div className="text-xs text-slate-400">Shared by {s.sharedBy.name} · {fmtDate(s.createdAt, true)}</div>

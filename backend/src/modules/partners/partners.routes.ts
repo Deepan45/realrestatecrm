@@ -8,6 +8,8 @@ import { validate } from "../../middleware/validate";
 import { audit } from "../../services/audit.service";
 import { logActivity } from "../../services/activity.service";
 import { notify } from "../../services/notification.service";
+import { runStageAutomation } from "../../services/pipelineAutomation.service";
+import { maskPhone } from "../../lib/mask";
 
 const router = Router();
 router.use(requireAuth);
@@ -101,7 +103,35 @@ router.get("/:id/leads", async (req, res, next) => {
       },
       orderBy: { createdAt: "desc" },
     });
-    res.json({ data: shares });
+    // Partners see masked numbers to protect the centralized database from bulk
+    // extraction; they reveal a specific client's number one at a time via /reveal-phone,
+    // which is audited. Internal staff always see full numbers.
+    const data = req.user!.role === Role.PARTNER_USER
+      ? shares.map((s) => ({
+          ...s,
+          lead: { ...s.lead, mobile: maskPhone(s.lead.mobile), whatsappNumber: s.lead.whatsappNumber ? maskPhone(s.lead.whatsappNumber) : null },
+        }))
+      : shares;
+    res.json({ data });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Reveal a shared lead's real phone number for a specific partner share — a discrete,
+// audited action rather than the number being visible in the list response at all times.
+router.post("/shares/:shareId/reveal-phone", async (req, res, next) => {
+  try {
+    const share = await prisma.partnerLeadShare.findUnique({
+      where: { id: req.params.shareId },
+      include: { lead: { select: { mobile: true, whatsappNumber: true, fullName: true } } },
+    });
+    if (!share) throw notFound("Shared lead");
+    const user = req.user!;
+    const isPartnerOwner = user.role === Role.PARTNER_USER && user.partnerCompanyId === share.partnerId;
+    if (!isPartnerOwner && user.role === Role.PARTNER_USER) throw forbidden();
+    await audit(user.id, "partner_revealed_phone", "partner_lead_share", share.id, { leadName: share.lead.fullName });
+    res.json({ data: { mobile: share.lead.mobile, whatsappNumber: share.lead.whatsappNumber } });
   } catch (err) {
     next(err);
   }
@@ -118,7 +148,7 @@ router.put("/shares/:shareId", validate(shareStatusSchema), async (req, res, nex
   try {
     const share = await prisma.partnerLeadShare.findUnique({
       where: { id: req.params.shareId },
-      include: { lead: true, partner: true },
+      include: { lead: true, partner: true, sharedBy: { select: { name: true } } },
     });
     if (!share) throw notFound("Shared lead");
     const user = req.user!;
@@ -144,10 +174,13 @@ router.put("/shares/:shareId", validate(shareStatusSchema), async (req, res, nex
       });
     }
     if (req.body.status === PartnerShareStatus.CONVERTED && share.status !== PartnerShareStatus.CONVERTED) {
-      await prisma.lead.update({
+      const lead = await prisma.lead.update({
         where: { id: share.leadId },
-        data: { status: "CONVERTED", stage: "CONVERTED", convertedAt: new Date() },
+        data: { status: "CONVERTED", stage: "REGISTRATION", convertedAt: new Date() },
       });
+      // Partner-side closes go through the same Registration automation (testimonial +
+      // referral ask) as internal stage moves — credited to the staff member who shared.
+      await runStageAutomation(lead, "REGISTRATION", { id: share.sharedById, name: share.sharedBy?.name ?? "our team" });
     }
     res.json({ data: updated });
   } catch (err) {

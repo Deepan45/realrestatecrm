@@ -7,7 +7,8 @@ import { useAuth } from "@/lib/auth";
 import PropertyForm from "@/components/PropertyForm";
 import { Badge, Button, Card, Spinner } from "@/components/ui";
 import { Property, fmtDate, fmtMoney, labelize } from "@/lib/types";
-import { BuildingIcon, VideoIcon } from "@/components/icons";
+import { BuildingIcon, MapPinIcon, VideoIcon } from "@/components/icons";
+import { youtubeEmbedUrl } from "@/lib/youtube";
 
 export default function PropertyDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -76,6 +77,17 @@ export default function PropertyDetailPage() {
           ) : (
             <div className="flex h-64 items-center justify-center bg-slate-100 text-slate-300"><BuildingIcon className="h-16 w-16" /></div>
           )}
+          {property.youtubeUrl && youtubeEmbedUrl(property.youtubeUrl) && (
+            <div className="aspect-video w-full">
+              <iframe
+                src={youtubeEmbedUrl(property.youtubeUrl)!}
+                title="Property video"
+                className="h-full w-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          )}
           {property.description && <p className="p-4 text-sm text-slate-600">{property.description}</p>}
         </Card>
 
@@ -100,6 +112,16 @@ export default function PropertyDetailPage() {
                 </div>
               ))}
             </dl>
+            {property.latitude != null && property.longitude != null && (
+              <a
+                href={`https://www.google.com/maps?q=${property.latitude},${property.longitude}`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-3 flex items-center gap-1.5 text-sm text-brand-600 hover:underline"
+              >
+                <MapPinIcon className="h-4 w-4" /> View on Google Maps
+              </a>
+            )}
             {property.videoUrl && (
               property.videoUrl.startsWith("/uploads/") ? (
                 <div className="mt-3">

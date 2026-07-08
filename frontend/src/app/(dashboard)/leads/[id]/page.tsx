@@ -12,7 +12,7 @@ import {
   Lead, PIPELINE_STAGES, PartnerCompany, Property, User,
   fmtDate, fmtMoney, labelize,
 } from "@/lib/types";
-import { BuildingIcon, SearchIcon, SendIcon } from "@/components/icons";
+import { ArrowRightLeftIcon, BuildingIcon, SearchIcon, SendIcon } from "@/components/icons";
 
 interface LeadDetail extends Lead {
   notes: { id: string; body: string; createdAt: string; author: { name: string } }[];
@@ -72,7 +72,7 @@ export default function LeadDetailPage() {
       }).catch(() => {});
       api.get<{ data: PartnerCompany[] }>("/partners").then((r) => setPartners(r.data.filter((p) => p.status === "ACTIVE"))).catch(() => {});
     }
-    if (hasRole("SALES_MANAGER")) {
+    if (hasRole("SALES_MANAGER", "SALES_EXECUTIVE")) {
       api.get<{ data: User[] }>("/users?active=true").then((r) =>
         setStaff(r.data.filter((u) => ["SALES_EXECUTIVE", "SALES_MANAGER"].includes(u.role)))
       ).catch(() => {});
@@ -185,14 +185,18 @@ export default function LeadDetailPage() {
               {PIPELINE_STAGES.map((s) => <option key={s} value={s}>{labelize(s)}</option>)}
             </Select>
             {staff.length > 0 && (
-              <Select
-                className="w-auto"
-                value={lead.assignedToId ?? ""}
-                onChange={(e) => e.target.value && act(() => api.post(`/leads/${id}/assign`, { assignedToId: e.target.value }))}
-              >
-                <option value="">Assign to…</option>
-                {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </Select>
+              <div className="flex items-center gap-1.5">
+                {!hasRole("SALES_MANAGER") && <ArrowRightLeftIcon className="h-3.5 w-3.5 shrink-0 text-slate-400" />}
+                <Select
+                  className="w-auto"
+                  value={lead.assignedToId ?? ""}
+                  onChange={(e) => e.target.value && act(() => api.post(`/leads/${id}/assign`, { assignedToId: e.target.value }))}
+                  title={hasRole("SALES_MANAGER") ? "Assign to a staff member" : "Transfer this lead to a peer"}
+                >
+                  <option value="">{hasRole("SALES_MANAGER") ? "Assign to…" : "Transfer to…"}</option>
+                  {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </Select>
+              </div>
             )}
             <Button variant="secondary" onClick={() => setShowEdit(true)}>Edit</Button>
             <Button variant="secondary" onClick={() => setShowShare(true)}>Share to partner</Button>

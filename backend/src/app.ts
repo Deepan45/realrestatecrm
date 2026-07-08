@@ -14,12 +14,16 @@ import notificationsRoutes from "./modules/notifications/notifications.routes";
 import reportsRoutes from "./modules/reports/reports.routes";
 import settingsRoutes from "./modules/settings/settings.routes";
 import aiRoutes from "./modules/ai/ai.routes";
+import blogRoutes from "./modules/blog/blog.routes";
+import integrationsRoutes from "./modules/integrations/integrations.routes";
 
 export function createApp() {
   const app = express();
 
   app.use(cors());
-  app.use(express.json({ limit: "2mb" }));
+  // `verify` stashes the raw bytes on req.rawBody, needed to check the Meta
+  // webhook's HMAC signature over the exact payload sent (not our re-serialized copy).
+  app.use(express.json({ limit: "2mb", verify: (req, _res, buf) => { (req as express.Request).rawBody = buf; } }));
   app.use("/uploads", express.static(UPLOAD_DIR));
 
   app.get("/api/health", (_req, res) => res.json({ status: "ok" }));
@@ -35,6 +39,8 @@ export function createApp() {
   app.use("/api/reports", reportsRoutes);
   app.use("/api/settings", settingsRoutes);
   app.use("/api/ai", aiRoutes);
+  app.use("/api/blog", blogRoutes);
+  app.use("/api/integrations", integrationsRoutes);
 
   app.use(errorHandler);
   return app;

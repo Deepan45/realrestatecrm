@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { Badge, Button, Card, ErrorBanner, Field, Input, Modal, Select, Spinner } from "@/components/ui";
+import { Badge, Button, Card, ErrorBanner, Field, Input, Modal, PageHeader, Select, Spinner } from "@/components/ui";
+import { UserIcon } from "@/components/icons";
 import { PartnerCompany, Role, User, fmtDate, labelize } from "@/lib/types";
 
 const ROLES: Role[] = ["SUPER_ADMIN", "SALES_MANAGER", "SALES_EXECUTIVE", "PROPERTY_STAFF", "PARTNER_USER"];
@@ -69,10 +70,12 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">User management</h1>
-        <Button onClick={() => openForm()}>+ Add user</Button>
-      </div>
+      <PageHeader
+        icon={UserIcon}
+        title="User Management"
+        subtitle="Team accounts, roles, and partner portal access"
+        actions={<Button onClick={() => openForm()}>+ Add user</Button>}
+      />
       <ErrorBanner message={error} />
       <Card>
         <div className="overflow-x-auto">

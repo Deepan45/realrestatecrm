@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { LeadStatus, Prisma, Role } from "@prisma/client";
+import { LeadStatus, PipelineStage, Prisma, Role } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import { requireAuth, requireRole } from "../../middleware/auth";
 
@@ -119,11 +119,14 @@ router.get("/staff", requireRole(Role.SALES_MANAGER), async (req, res, next) => 
     });
     const rows = await Promise.all(
       staff.map(async (s) => {
-        const [assigned, converted, waSent, shared] = await Promise.all([
+        const [assigned, converted, waSent, shared, siteVisitsCompleted] = await Promise.all([
           prisma.lead.count({ where: { ...where, assignedToId: s.id } }),
           prisma.lead.count({ where: { ...where, assignedToId: s.id, status: "CONVERTED" } }),
           prisma.whatsAppLog.count({ where: { sentById: s.id, ...(where.createdAt ? { createdAt: where.createdAt as never } : {}) } }),
           prisma.partnerLeadShare.count({ where: { sharedById: s.id } }),
+          prisma.pipelineHistory.count({
+            where: { changedById: s.id, toStage: PipelineStage.SITE_VISIT_COMPLETED, ...(where.createdAt ? { createdAt: where.createdAt as never } : {}) },
+          }),
         ]);
         return {
           staffId: s.id,
@@ -133,6 +136,7 @@ router.get("/staff", requireRole(Role.SALES_MANAGER), async (req, res, next) => 
           conversionRate: assigned ? Math.round((converted / assigned) * 1000) / 10 : 0,
           whatsappSent: waSent,
           partnerShares: shared,
+          siteVisitsCompleted,
         };
       })
     );
@@ -172,15 +176,77 @@ router.get("/partners", requireRole(Role.SALES_MANAGER), async (_req, res, next)
 // ── Monthly lead trend (last 12 months) ──────────────────────────────
 router.get("/monthly", requireRole(Role.SALES_MANAGER), async (_req, res, next) => {
   try {
-    const rows = await prisma.$queryRaw<{ month: string; total: bigint; converted: bigint }[]>`
+    const rows = await prisma.$queryRaw<{ month: string; total: bigint; converted: bigint; pipelinevalue: string | null }[]>`
       SELECT to_char(date_trunc('month', "createdAt"), 'YYYY-MM') AS month,
              COUNT(*)::bigint AS total,
-             COUNT(*) FILTER (WHERE status = 'CONVERTED')::bigint AS converted
+             COUNT(*) FILTER (WHERE status = 'CONVERTED')::bigint AS converted,
+             SUM("budgetMax") AS pipelinevalue
       FROM "Lead"
       WHERE "createdAt" >= now() - interval '12 months'
       GROUP BY 1 ORDER BY 1`;
     res.json({
-      data: rows.map((r) => ({ month: r.month, total: Number(r.total), converted: Number(r.converted) })),
+      data: rows.map((r) => ({
+        month: r.month, total: Number(r.total), converted: Number(r.converted),
+        pipelineValue: r.pipelinevalue ? Number(r.pipelinevalue) : 0,
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── Property engagement (which listings get traction) ────────────────
+router.get("/property-engagement", requireRole(Role.SALES_MANAGER), async (req, res, next) => {
+  try {
+    const { from, to } = req.query as Record<string, string>;
+    const dateFilter = from || to ? { createdAt: { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to) } : {}) } } : {};
+    const [viewCounts, shortlistCounts, properties] = await Promise.all([
+      prisma.propertyViewEvent.groupBy({ by: ["propertyId"], where: dateFilter, _count: true }),
+      prisma.propertyMatch.groupBy({ by: ["propertyId"], _count: true }),
+      prisma.property.findMany({ select: { id: true, title: true, location: true, status: true } }),
+    ]);
+    const viewsByProperty = new Map(viewCounts.map((v) => [v.propertyId, v._count]));
+    const shortlistsByProperty = new Map(shortlistCounts.map((s) => [s.propertyId, s._count]));
+    const rows = properties.map((p) => ({
+      propertyId: p.id,
+      title: p.title,
+      location: p.location,
+      status: p.status,
+      views: viewsByProperty.get(p.id) ?? 0,
+      shortlists: shortlistsByProperty.get(p.id) ?? 0,
+    }));
+    res.json({ data: rows.sort((a, b) => b.views - a.views) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── Buyer behavior (repeat inquirers, match ratio, decision timelines) ──
+router.get("/buyer-behavior", requireRole(Role.SALES_MANAGER), async (req, res, next) => {
+  try {
+    const where = dateRange(req as never);
+    const [byMobile, converted] = await Promise.all([
+      prisma.lead.groupBy({ by: ["mobile"], where, _count: true, having: { mobile: { _count: { gt: 1 } } } }),
+      prisma.lead.findMany({
+        where: { ...where, status: LeadStatus.CONVERTED, convertedAt: { not: null } },
+        select: { id: true, createdAt: true, convertedAt: true, matches: { select: { id: true } } },
+      }),
+    ]);
+    const avgDecisionDays = converted.length
+      ? Math.round(
+          converted.reduce((sum, l) => sum + (l.convertedAt!.getTime() - l.createdAt.getTime()) / (1000 * 60 * 60 * 24), 0) / converted.length
+        )
+      : 0;
+    const avgShortlistSize = converted.length
+      ? Math.round((converted.reduce((sum, l) => sum + l.matches.length, 0) / converted.length) * 10) / 10
+      : 0;
+    res.json({
+      data: {
+        repeatInquirers: byMobile.length,
+        convertedLeadCount: converted.length,
+        avgDecisionDays,
+        avgShortlistSize,
+      },
     });
   } catch (err) {
     next(err);

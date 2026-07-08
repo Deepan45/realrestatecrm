@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { Badge, Button, Card, ErrorBanner, Field, Input, Modal, Spinner, Textarea } from "@/components/ui";
+import { Badge, Button, Card, ErrorBanner, Field, Input, Modal, PageHeader, Spinner, Textarea } from "@/components/ui";
+import { SettingsIcon } from "@/components/icons";
 
 interface Template {
   id: string;
@@ -73,7 +74,11 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-semibold">Settings</h1>
+      <PageHeader
+        icon={SettingsIcon}
+        title="Settings"
+        subtitle="WhatsApp templates, automations, and workspace preferences"
+      />
       <ErrorBanner message={error} />
       {saved && <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-700">{saved}</div>}
 
@@ -81,7 +86,10 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
           <div>
             <h3 className="text-sm font-semibold">WhatsApp templates</h3>
-            <p className="text-xs text-slate-500">Placeholders: {"{{name}}"}, {"{{agent}}"}, {"{{properties}}"}</p>
+            <p className="text-xs text-slate-500">
+              Placeholders: {"{{name}}"}, {"{{agent}}"}, {"{{properties}}"}, {"{{time}}"} (automation templates).
+              Keys <code className="rounded bg-slate-100 px-1">site_visit_before</code>, <code className="rounded bg-slate-100 px-1">site_visit_feedback</code>, <code className="rounded bg-slate-100 px-1">registration_testimonial</code> fire automatically on stage changes.
+            </p>
           </div>
           {canEdit && <Button size="sm" onClick={() => openForm()}>+ New template</Button>}
         </div>
