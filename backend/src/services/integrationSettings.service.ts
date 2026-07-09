@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { env } from "../config/env";
 
@@ -56,6 +57,49 @@ export const SECRET_FIELDS: { [K in keyof IntegrationSettings]: (keyof Integrati
   leadWebhook: ["secret"],
 };
 
+/** Per-section validation for PUT /settings/integrations/:section — every field is
+ * optional (partial updates), but a field that IS sent must have the right shape, so a
+ * malformed request can't corrupt the settings store (e.g. a number where a string
+ * belongs, or a provider value outside the enum the code actually switches on). */
+export const SECTION_SCHEMAS = {
+  whatsapp: z.object({
+    provider: z.enum(["mock", "cloud", "msg91", "smartping"]),
+    cloudApiUrl: z.string(),
+    phoneNumberId: z.string(),
+    accessToken: z.string(),
+    msg91AuthKey: z.string(),
+    msg91IntegratedNumber: z.string(),
+    msg91WhatsappUrl: z.string(),
+    smartpingApiKey: z.string(),
+    smartpingCampaignName: z.string(),
+  }).partial(),
+  openai: z.object({
+    apiKey: z.string(),
+    model: z.string(),
+    apiUrl: z.string(),
+    inputPricePerMillion: z.coerce.number().min(0),
+    outputPricePerMillion: z.coerce.number().min(0),
+  }).partial(),
+  meta: z.object({
+    verifyToken: z.string(),
+    appSecret: z.string(),
+    pageAccessToken: z.string(),
+    graphApiUrl: z.string(),
+  }).partial(),
+  websiteSync: z.object({
+    apiUrl: z.string(),
+    apiKey: z.string(),
+    webhookSecret: z.string(),
+  }).partial(),
+  leadWebhook: z.object({
+    secret: z.string(),
+  }).partial(),
+} satisfies Record<keyof IntegrationSettings, z.ZodTypeAny>;
+
+/** Single source of truth for valid section names — derived from SECTION_SCHEMAS so it
+ * can't drift out of sync if a section is ever added or renamed. */
+export const INTEGRATION_SECTIONS = Object.keys(SECTION_SCHEMAS) as (keyof IntegrationSettings)[];
+
 const DB_KEY_PREFIX = "integration_";
 
 /** env vars remain the defaults a fresh install starts from — the Settings UI writes
@@ -112,7 +156,11 @@ async function loadFromDb(): Promise<IntegrationSettings> {
 }
 
 /** Cached after first load (this process is the only writer, via updateIntegrationSection
- * below, which updates the cache directly) — avoids a DB round-trip on every WhatsApp/AI call. */
+ * below, which updates the cache directly) — avoids a DB round-trip on every WhatsApp/AI call.
+ * Known limitation: if this app ever runs as multiple server processes/replicas behind a
+ * load balancer, a settings change made on one instance won't be visible to the others
+ * until they restart — there's no cross-process invalidation. Fine for the current
+ * single-instance deployment; would need a pub/sub or short TTL to scale out safely. */
 export async function getIntegrationSettings(): Promise<IntegrationSettings> {
   if (!cache) cache = await loadFromDb();
   return cache;

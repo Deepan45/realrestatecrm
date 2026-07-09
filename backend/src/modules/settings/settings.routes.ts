@@ -6,6 +6,8 @@ import { requireAuth, requireRole } from "../../middleware/auth";
 import { validate } from "../../middleware/validate";
 import { audit } from "../../services/audit.service";
 import {
+  INTEGRATION_SECTIONS,
+  SECTION_SCHEMAS,
   IntegrationSettings,
   getIntegrationSettings,
   maskAll,
@@ -30,7 +32,6 @@ router.get("/", async (_req, res, next) => {
 // ── Integrations (WhatsApp, OpenAI, Meta Lead Ads, website sync, lead webhooks) ──
 // Super Admin only — these are third-party credentials, not general workspace prefs.
 // Secrets are masked on read; a PUT that echoes a masked value back leaves it unchanged.
-const INTEGRATION_SECTIONS = ["whatsapp", "openai", "meta", "websiteSync", "leadWebhook"] as const;
 
 router.get("/integrations", requireRole(), async (_req, res, next) => {
   try {
@@ -48,10 +49,14 @@ router.put(
   async (req, res, next) => {
     try {
       const section = req.params.section as keyof IntegrationSettings;
-      if (!INTEGRATION_SECTIONS.includes(section as (typeof INTEGRATION_SECTIONS)[number])) {
+      if (!INTEGRATION_SECTIONS.includes(section)) {
         throw badRequest(`Unknown integration section "${req.params.section}"`);
       }
-      const patch = stripUnchangedSecrets(section, req.body.value as Record<string, unknown>);
+      const parsed = SECTION_SCHEMAS[section].safeParse(req.body.value);
+      if (!parsed.success) {
+        throw badRequest(`Invalid ${section} settings: ${parsed.error.errors.map((e) => `${e.path.join(".")} ${e.message}`).join("; ")}`);
+      }
+      const patch = stripUnchangedSecrets(section, parsed.data as Record<string, unknown>);
       const updated = await updateIntegrationSection(section, patch);
       await audit(req.user!.id, "integration_settings_updated", "setting", section);
       res.json({ data: maskSection(section, updated) });

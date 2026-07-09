@@ -167,10 +167,10 @@ export default function IntegrationsPanel() {
           <Field label="API URL"><Input value={openai.form.apiUrl} onChange={(e) => openai.set("apiUrl", e.target.value)} /></Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Input $ / 1M tokens">
-              <Input type="number" step="any" min={0} value={openai.form.inputPricePerMillion} onChange={(e) => openai.set("inputPricePerMillion", Number(e.target.value))} />
+              <Input type="number" step="any" min={0} value={openai.form.inputPricePerMillion} onChange={(e) => openai.set("inputPricePerMillion", Number(e.target.value) || 0)} />
             </Field>
             <Field label="Output $ / 1M tokens">
-              <Input type="number" step="any" min={0} value={openai.form.outputPricePerMillion} onChange={(e) => openai.set("outputPricePerMillion", Number(e.target.value))} />
+              <Input type="number" step="any" min={0} value={openai.form.outputPricePerMillion} onChange={(e) => openai.set("outputPricePerMillion", Number(e.target.value) || 0)} />
             </Field>
           </div>
         </div>
