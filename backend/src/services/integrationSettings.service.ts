@@ -70,8 +70,8 @@ export const SECTION_SCHEMAS = {
     msg91AuthKey: z.string(),
     msg91IntegratedNumber: z.string(),
     msg91WhatsappUrl: z.string(),
-    smartpingApiKey: z.string(),
-    smartpingCampaignName: z.string(),
+    smartpingApiKey: z.string().trim(),
+    smartpingCampaignName: z.string().trim(),
   }).partial(),
   openai: z.object({
     apiKey: z.string(),
