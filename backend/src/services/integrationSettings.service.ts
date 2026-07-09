@@ -141,8 +141,6 @@ function defaults(): IntegrationSettings {
   };
 }
 
-let cache: IntegrationSettings | null = null;
-
 async function loadFromDb(): Promise<IntegrationSettings> {
   const merged = defaults();
   const rows = await prisma.setting.findMany({
@@ -155,15 +153,14 @@ async function loadFromDb(): Promise<IntegrationSettings> {
   return merged;
 }
 
-/** Cached after first load (this process is the only writer, via updateIntegrationSection
- * below, which updates the cache directly) — avoids a DB round-trip on every WhatsApp/AI call.
- * Known limitation: if this app ever runs as multiple server processes/replicas behind a
- * load balancer, a settings change made on one instance won't be visible to the others
- * until they restart — there's no cross-process invalidation. Fine for the current
- * single-instance deployment; would need a pub/sub or short TTL to scale out safely. */
+/** Always reads fresh from the database — these calls happen on outbound WhatsApp/AI
+ * sends and inbound webhooks, none of which are hot paths, so there's no need to trade
+ * correctness for a cache. A process-local cache here previously meant a settings change
+ * saved via one server instance could stay invisible to another (behind a load balancer,
+ * PM2 cluster mode, etc.) until that instance restarted — this reads the same row every
+ * request instead, so every process sees a save immediately. */
 export async function getIntegrationSettings(): Promise<IntegrationSettings> {
-  if (!cache) cache = await loadFromDb();
-  return cache;
+  return loadFromDb();
 }
 
 export async function updateIntegrationSection<K extends keyof IntegrationSettings>(
@@ -177,7 +174,6 @@ export async function updateIntegrationSection<K extends keyof IntegrationSettin
     create: { key: DB_KEY_PREFIX + section, value: merged as object },
     update: { value: merged as object },
   });
-  current[section] = merged;
   return merged;
 }
 
