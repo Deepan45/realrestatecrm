@@ -17,11 +17,17 @@ interface WhatsAppSettings {
   smartpingCampaignName: string;
 }
 interface OpenAiSettings {
+  provider: "openai" | "gemini";
   apiKey: string;
   model: string;
   apiUrl: string;
   inputPricePerMillion: number;
   outputPricePerMillion: number;
+  geminiApiKey: string;
+  geminiModel: string;
+  geminiApiUrl: string;
+  geminiInputPricePerMillion: number;
+  geminiOutputPricePerMillion: number;
 }
 interface MetaSettings {
   verifyToken: string;
@@ -157,23 +163,49 @@ export default function IntegrationsPanel() {
         <SaveBar busy={whatsapp.busy} saved={whatsapp.saved} error={whatsapp.error} onSave={whatsapp.save} />
       </Card>
 
-      {/* OpenAI */}
+      {/* AI Operating Agent */}
       <Card className="p-4">
-        <h3 className="text-sm font-semibold">OpenAI (AI Operating Agent)</h3>
+        <h3 className="text-sm font-semibold">AI Operating Agent</h3>
         <p className="mt-0.5 text-xs text-slate-500">Powers sales pitches, proposals, price predictions, and agreement drafts. Pricing fields are only used to estimate cost on the Usage &amp; Cost tab.</p>
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Field label="API Key"><Input type="password" value={openai.form.apiKey} onChange={(e) => openai.set("apiKey", e.target.value)} placeholder="sk-…" /></Field>
-          <Field label="Model"><Input value={openai.form.model} onChange={(e) => openai.set("model", e.target.value)} placeholder="gpt-4o-mini" /></Field>
-          <Field label="API URL"><Input value={openai.form.apiUrl} onChange={(e) => openai.set("apiUrl", e.target.value)} /></Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Input $ / 1M tokens">
-              <Input type="number" step="any" min={0} value={openai.form.inputPricePerMillion} onChange={(e) => openai.set("inputPricePerMillion", Number(e.target.value) || 0)} />
-            </Field>
-            <Field label="Output $ / 1M tokens">
-              <Input type="number" step="any" min={0} value={openai.form.outputPricePerMillion} onChange={(e) => openai.set("outputPricePerMillion", Number(e.target.value) || 0)} />
-            </Field>
-          </div>
+          <Field label="Provider">
+            <Select value={openai.form.provider} onChange={(e) => openai.set("provider", e.target.value as OpenAiSettings["provider"])}>
+              <option value="openai">OpenAI</option>
+              <option value="gemini">Google Gemini</option>
+            </Select>
+          </Field>
         </div>
+
+        {openai.form.provider === "openai" && (
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="API Key"><Input type="password" value={openai.form.apiKey} onChange={(e) => openai.set("apiKey", e.target.value)} placeholder="sk-…" /></Field>
+            <Field label="Model"><Input value={openai.form.model} onChange={(e) => openai.set("model", e.target.value)} placeholder="gpt-4o-mini" /></Field>
+            <Field label="API URL"><Input value={openai.form.apiUrl} onChange={(e) => openai.set("apiUrl", e.target.value)} /></Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Input $ / 1M tokens">
+                <Input type="number" step="any" min={0} value={openai.form.inputPricePerMillion} onChange={(e) => openai.set("inputPricePerMillion", Number(e.target.value) || 0)} />
+              </Field>
+              <Field label="Output $ / 1M tokens">
+                <Input type="number" step="any" min={0} value={openai.form.outputPricePerMillion} onChange={(e) => openai.set("outputPricePerMillion", Number(e.target.value) || 0)} />
+              </Field>
+            </div>
+          </div>
+        )}
+        {openai.form.provider === "gemini" && (
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="API Key"><Input type="password" value={openai.form.geminiApiKey} onChange={(e) => openai.set("geminiApiKey", e.target.value)} placeholder="AIza…" /></Field>
+            <Field label="Model"><Input value={openai.form.geminiModel} onChange={(e) => openai.set("geminiModel", e.target.value)} placeholder="gemini-1.5-flash" /></Field>
+            <Field label="API URL"><Input value={openai.form.geminiApiUrl} onChange={(e) => openai.set("geminiApiUrl", e.target.value)} /></Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Input $ / 1M tokens">
+                <Input type="number" step="any" min={0} value={openai.form.geminiInputPricePerMillion} onChange={(e) => openai.set("geminiInputPricePerMillion", Number(e.target.value) || 0)} />
+              </Field>
+              <Field label="Output $ / 1M tokens">
+                <Input type="number" step="any" min={0} value={openai.form.geminiOutputPricePerMillion} onChange={(e) => openai.set("geminiOutputPricePerMillion", Number(e.target.value) || 0)} />
+              </Field>
+            </div>
+          </div>
+        )}
         <SaveBar busy={openai.busy} saved={openai.saved} error={openai.error} onSave={openai.save} />
       </Card>
 

@@ -15,11 +15,17 @@ export interface WhatsAppSettings {
 }
 
 export interface OpenAiSettings {
+  provider: "openai" | "gemini";
   apiKey: string;
   model: string;
   apiUrl: string;
   inputPricePerMillion: number;
   outputPricePerMillion: number;
+  geminiApiKey: string;
+  geminiModel: string;
+  geminiApiUrl: string;
+  geminiInputPricePerMillion: number;
+  geminiOutputPricePerMillion: number;
 }
 
 export interface MetaSettings {
@@ -51,7 +57,7 @@ export interface IntegrationSettings {
  * PUT that just echoes back the mask (see settings.routes.ts). */
 export const SECRET_FIELDS: { [K in keyof IntegrationSettings]: (keyof IntegrationSettings[K])[] } = {
   whatsapp: ["accessToken", "msg91AuthKey", "smartpingApiKey"],
-  openai: ["apiKey"],
+  openai: ["apiKey", "geminiApiKey"],
   meta: ["appSecret", "pageAccessToken"],
   websiteSync: ["apiKey", "webhookSecret"],
   leadWebhook: ["secret"],
@@ -74,11 +80,17 @@ export const SECTION_SCHEMAS = {
     smartpingCampaignName: z.string().trim(),
   }).partial(),
   openai: z.object({
+    provider: z.enum(["openai", "gemini"]),
     apiKey: z.string(),
     model: z.string(),
     apiUrl: z.string(),
     inputPricePerMillion: z.coerce.number().min(0),
     outputPricePerMillion: z.coerce.number().min(0),
+    geminiApiKey: z.string(),
+    geminiModel: z.string(),
+    geminiApiUrl: z.string(),
+    geminiInputPricePerMillion: z.coerce.number().min(0),
+    geminiOutputPricePerMillion: z.coerce.number().min(0),
   }).partial(),
   meta: z.object({
     verifyToken: z.string(),
@@ -118,11 +130,17 @@ function defaults(): IntegrationSettings {
       smartpingCampaignName: env.smartping.campaignName,
     },
     openai: {
+      provider: (env.openai.provider as OpenAiSettings["provider"]) || "openai",
       apiKey: env.openai.apiKey,
       model: env.openai.model,
       apiUrl: env.openai.apiUrl,
       inputPricePerMillion: env.openai.inputPricePerMillion,
       outputPricePerMillion: env.openai.outputPricePerMillion,
+      geminiApiKey: env.gemini.apiKey,
+      geminiModel: env.gemini.model,
+      geminiApiUrl: env.gemini.apiUrl,
+      geminiInputPricePerMillion: env.gemini.inputPricePerMillion,
+      geminiOutputPricePerMillion: env.gemini.outputPricePerMillion,
     },
     meta: {
       verifyToken: env.meta.verifyToken,

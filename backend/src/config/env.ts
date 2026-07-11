@@ -27,6 +27,8 @@ export const env = {
     campaignName: process.env.SMARTPING_CAMPAIGN_NAME || "",
   },
   openai: {
+    // "openai" or "gemini" — which provider actually serves the AI Operating Agent.
+    provider: process.env.AI_PROVIDER || "openai",
     apiKey: process.env.OPENAI_API_KEY || "",
     model: process.env.OPENAI_MODEL || "gpt-4o-mini",
     apiUrl: process.env.OPENAI_API_URL || "https://api.openai.com/v1/chat/completions",
@@ -35,6 +37,15 @@ export const env = {
     // record; update these if your OpenAI plan/model pricing differs.
     inputPricePerMillion: Number(process.env.OPENAI_INPUT_PRICE_PER_MILLION || 0.15),
     outputPricePerMillion: Number(process.env.OPENAI_OUTPUT_PRICE_PER_MILLION || 0.6),
+  },
+  gemini: {
+    apiKey: process.env.GEMINI_API_KEY || "",
+    model: process.env.GEMINI_MODEL || "gemini-1.5-flash",
+    apiUrl: process.env.GEMINI_API_URL || "https://generativelanguage.googleapis.com/v1beta/models",
+    // USD per 1,000,000 tokens — defaults match gemini-1.5-flash's public pricing at the
+    // time this was written; update if your model/plan differs.
+    inputPricePerMillion: Number(process.env.GEMINI_INPUT_PRICE_PER_MILLION || 0.075),
+    outputPricePerMillion: Number(process.env.GEMINI_OUTPUT_PRICE_PER_MILLION || 0.3),
   },
   smtp: {
     host: process.env.SMTP_HOST || "",
