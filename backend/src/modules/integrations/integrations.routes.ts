@@ -5,8 +5,13 @@ import { prisma } from "../../lib/prisma";
 import { getIntegrationSettings } from "../../services/integrationSettings.service";
 import { validate } from "../../middleware/validate";
 import { requireWebhookSecret } from "../../lib/webhookAuth";
+import { rateLimitByIp } from "../../lib/rateLimit";
 
 const router = Router();
+// Property syncs are server-to-server and can legitimately arrive in batches, but this
+// route previously had no throttling at all — an exposed secret had no limit on scripted
+// property creation.
+const websiteSyncRateLimit = rateLimitByIp(200, 10 * 60 * 1000);
 
 /**
  * Inbound sync from the public real-estate website: whenever a property is created,
@@ -38,6 +43,7 @@ const inboundPropertySchema = z.object({
 
 router.post(
   "/website/properties",
+  websiteSyncRateLimit,
   requireWebhookSecret(async () => (await getIntegrationSettings()).websiteSync.webhookSecret),
   validate(inboundPropertySchema),
   async (req, res, next) => {

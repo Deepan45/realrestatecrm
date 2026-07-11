@@ -13,21 +13,16 @@ export interface ScoredProperty {
  * Properties matching nothing at all are dropped.
  */
 export async function matchPropertiesForLead(lead: Lead, limit = 20): Promise<ScoredProperty[]> {
-  // Pre-filter in SQL to keep the candidate set small, then score in memory.
+  // Pre-filter in SQL to just status — everything else (type, location, budget, bedrooms)
+  // is a weighted point contribution below, not a hard requirement, so filtering the
+  // candidate pool by type here would exclude properties that could still clear the
+  // score >= 30 cutoff on budget/bedrooms/currency alone.
   const where: Prisma.PropertyWhereInput = { status: AvailabilityStatus.AVAILABLE };
-  if (lead.propertyType) {
-    // Keep other types as low-scoring candidates only when the lead has no budget/location signal
-    where.OR = [
-      { type: lead.propertyType },
-      ...(lead.city || lead.preferredArea
-        ? [{ location: { contains: (lead.preferredArea || lead.city)!, mode: "insensitive" as const } }]
-        : []),
-    ];
-  }
 
   const candidates = await prisma.property.findMany({
     where,
     include: { images: { select: { url: true, isPrimary: true }, orderBy: { sortOrder: "asc" } } },
+    orderBy: { updatedAt: "desc" },
     take: 300,
   });
 
@@ -47,9 +42,15 @@ export async function matchPropertiesForLead(lead: Lead, limit = 20): Promise<Sc
       if (price >= min && price <= max) {
         score += 35;
         reasons.push("Within budget");
-      } else if (max !== Number.MAX_SAFE_INTEGER && price <= max * 1.15 && price >= min * 0.85) {
-        score += 18;
-        reasons.push("Close to budget (±15%)");
+      } else {
+        // ±15% tolerance on whichever bounds are actually set — a lead with only a
+        // minimum (no max) should still get credit for a price just under that minimum.
+        const nearMax = max === Number.MAX_SAFE_INTEGER ? max : max * 1.15;
+        const nearMin = min * 0.85;
+        if (price >= nearMin && price <= nearMax) {
+          score += 18;
+          reasons.push("Close to budget (±15%)");
+        }
       }
     } else {
       score += 15; // no budget given — neutral credit

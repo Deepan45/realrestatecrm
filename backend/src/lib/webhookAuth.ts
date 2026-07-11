@@ -23,7 +23,11 @@ export function requireWebhookSecret(getExpected: () => string | Promise<string>
       const expected = await getExpected();
       if (!expected) return next(new HttpError(503, "This webhook is not configured"));
       const provided = req.header(headerName);
-      if (!provided || provided !== expected) return next(new HttpError(401, "Invalid or missing webhook secret"));
+      const a = Buffer.from(expected);
+      const b = Buffer.from(provided ?? "");
+      if (!provided || a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+        return next(new HttpError(401, "Invalid or missing webhook secret"));
+      }
       next();
     } catch (err) {
       next(err);

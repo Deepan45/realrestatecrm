@@ -14,11 +14,12 @@ import {
   Role,
 } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
-import { badRequest, forbidden, HttpError, notFound } from "../../lib/errors";
+import { badRequest, forbidden, notFound } from "../../lib/errors";
 import { resolveMediaUrl } from "../../lib/media";
 import { maskPhone } from "../../lib/mask";
 import { toCsv } from "../../lib/csv";
 import { requireWebhookSecret, verifyMetaSignature } from "../../lib/webhookAuth";
+import { rateLimitByIp } from "../../lib/rateLimit";
 import { env } from "../../config/env";
 import { getIntegrationSettings } from "../../services/integrationSettings.service";
 import { AuthUser, requireAuth, requireRole, salesTeam } from "../../middleware/auth";
@@ -89,20 +90,14 @@ function maskForPartner<T extends { mobile: string; whatsappNumber: string | nul
 }
 
 // ── Public capture endpoint (visa form / website form) — no auth ────
-// Simple in-memory rate limit: 20 submissions per IP per 10 minutes.
-const captureHits = new Map<string, { count: number; resetAt: number }>();
-function captureRateLimit(req: { ip?: string }, _res: unknown, next: (err?: unknown) => void) {
-  const now = Date.now();
-  const key = req.ip ?? "unknown";
-  const entry = captureHits.get(key);
-  if (!entry || entry.resetAt < now) {
-    captureHits.set(key, { count: 1, resetAt: now + 10 * 60 * 1000 });
-    return next();
-  }
-  entry.count++;
-  if (entry.count > 20) return next(new HttpError(429, "Too many submissions, please try again later"));
-  next();
-}
+// 20 submissions per IP per 10 minutes — a real visitor filling in a form a couple
+// of times is fine; a script hammering the endpoint isn't.
+const captureRateLimit = rateLimitByIp(20, 10 * 60 * 1000);
+// Webhook routes are called server-to-server (a website's backend, not a browser), so a
+// legitimate burst can be much larger than a human filling in a form — but they were
+// previously the only public-facing routes here with no throttling at all, so an exposed
+// secret (leaked .env, intercepted call) had no limit on scripted lead creation.
+const webhookRateLimit = rateLimitByIp(120, 10 * 60 * 1000);
 
 router.post("/capture", captureRateLimit, validate(captureLeadSchema), async (req, res, next) => {
   try {
@@ -179,6 +174,7 @@ const websiteWebhookSchema = z.object({
 
 router.post(
   "/webhook/website",
+  webhookRateLimit,
   requireWebhookSecret(async () => (await getIntegrationSettings()).leadWebhook.secret),
   validate(websiteWebhookSchema),
   async (req, res, next) => {
@@ -206,6 +202,7 @@ const whatsappClickSchema = z.object({
 
 router.post(
   "/webhook/whatsapp-click",
+  webhookRateLimit,
   requireWebhookSecret(async () => (await getIntegrationSettings()).leadWebhook.secret),
   validate(whatsappClickSchema),
   async (req, res, next) => {
