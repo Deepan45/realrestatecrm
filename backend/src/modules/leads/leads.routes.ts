@@ -603,6 +603,26 @@ router.put("/:id", validate(updateLeadSchema), async (req, res, next) => {
     if (data.stage && data.stage !== existing.stage) {
       await runStageAutomation(lead, data.stage as PipelineStage, { id: req.user!.id, name: req.user!.name });
     }
+    // Shortlisted properties carry a saved match score computed against whatever the
+    // lead's requirements were at shortlist time — if budget/type/bedrooms/location just
+    // changed, those saved scores are now stale (e.g. still showing 92% for a property
+    // that no longer fits a since-lowered budget). Recompute them against the new values.
+    const REQUIREMENT_FIELDS = ["budgetMin", "budgetMax", "propertyType", "bedrooms", "preferredArea", "city", "currency"];
+    if (REQUIREMENT_FIELDS.some((f) => f in rest)) {
+      const existingMatches = await prisma.propertyMatch.findMany({ where: { leadId: lead.id }, select: { propertyId: true } });
+      if (existingMatches.length) {
+        const recomputed = await matchPropertiesForLead(lead, 100);
+        const scoreByProperty = new Map(recomputed.map((m) => [m.property.id, m.score]));
+        await Promise.all(
+          existingMatches.map((m) =>
+            prisma.propertyMatch.update({
+              where: { leadId_propertyId: { leadId: lead.id, propertyId: m.propertyId } },
+              data: { score: scoreByProperty.get(m.propertyId) ?? 0 },
+            })
+          )
+        );
+      }
+    }
     res.json({ data: lead });
   } catch (err) {
     next(err);

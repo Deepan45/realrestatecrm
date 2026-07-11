@@ -6,15 +6,25 @@ import { requireAuth, requireRole } from "../../middleware/auth";
 const router = Router();
 router.use(requireAuth);
 
-function dateRange(req: { query: Record<string, unknown> }): Prisma.LeadWhereInput {
+// The frontend sends bare YYYY-MM-DD dates from a plain <input type="date">, which parse
+// to midnight — an inclusive "to" filter using lte against that would only match records
+// created at exactly 00:00:00 and silently drop the entire end day. Push "to" to the
+// start of the following day and use an exclusive upper bound instead.
+// Returned as a plain (un-branded) filter object so it can be spread into a "createdAt"
+// clause on any model's where-input, not just Lead's.
+function dateRangeFilter(req: { query: Record<string, unknown> }): { gte?: Date; lt?: Date } | undefined {
   const { from, to } = req.query as Record<string, string>;
-  if (!from && !to) return {};
+  if (!from && !to) return undefined;
+  const toExclusive = to ? new Date(new Date(to).getTime() + 24 * 60 * 60 * 1000) : undefined;
   return {
-    createdAt: {
-      ...(from ? { gte: new Date(from) } : {}),
-      ...(to ? { lte: new Date(to) } : {}),
-    },
+    ...(from ? { gte: new Date(from) } : {}),
+    ...(toExclusive ? { lt: toExclusive } : {}),
   };
+}
+
+function dateRange(req: { query: Record<string, unknown> }): Prisma.LeadWhereInput {
+  const filter = dateRangeFilter(req);
+  return filter ? { createdAt: filter } : {};
 }
 
 // ── Dashboard widgets ────────────────────────────────────────────────
@@ -198,8 +208,8 @@ router.get("/monthly", requireRole(Role.SALES_MANAGER), async (_req, res, next) 
 // ── Property engagement (which listings get traction) ────────────────
 router.get("/property-engagement", requireRole(Role.SALES_MANAGER), async (req, res, next) => {
   try {
-    const { from, to } = req.query as Record<string, string>;
-    const dateFilter = from || to ? { createdAt: { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to) } : {}) } } : {};
+    const filter = dateRangeFilter(req as never);
+    const dateFilter = filter ? { createdAt: filter } : {};
     const [viewCounts, shortlistCounts, properties] = await Promise.all([
       prisma.propertyViewEvent.groupBy({ by: ["propertyId"], where: dateFilter, _count: true }),
       prisma.propertyMatch.groupBy({ by: ["propertyId"], _count: true }),

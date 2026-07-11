@@ -62,7 +62,10 @@ const SYSTEM_PROMPT =
   "Never invent property or client facts beyond what is given in the context — if information is missing, note that plainly. " +
   "Respect any length limit given exactly — do not run over it. Do not use markdown headers (#, ##, ###), horizontal " +
   "rules (---), tables, or a letter-style greeting/signature (no 'Dear...', no 'Best regards' block) unless the task " +
-  "explicitly asks for a formal document — plain paragraphs, occasional *bold*/_italic_, and simple emoji are enough.";
+  "explicitly asks for a formal document — plain paragraphs and simple emoji are enough. This text is often sent " +
+  "directly as a WhatsApp message: for emphasis use WhatsApp's own formatting — a single asterisk *like this* for " +
+  "bold and a single underscore _like this_ for italic. Never use double asterisks **like this**, double underscores, " +
+  "or any other markdown syntax — WhatsApp does not render it and it would show up as literal stray punctuation.";
 
 // Languages relevant to the CRM's Tamil Nadu / South India market — sent as a plain
 // instruction rather than a locale code since the model handles that better than we'd

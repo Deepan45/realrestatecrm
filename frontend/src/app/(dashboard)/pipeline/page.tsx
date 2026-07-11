@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
-import { Badge, ErrorBanner, PageHeader, Spinner } from "@/components/ui";
+import { Badge, ErrorBanner, PageHeader, Select, Spinner } from "@/components/ui";
 import { KanbanIcon } from "@/components/icons";
 import { Lead, PIPELINE_STAGES, PipelineStage, fmtMoney, labelize } from "@/lib/types";
 
@@ -119,6 +119,15 @@ export default function PipelinePage() {
                         <Badge value={lead.source} />
                       </div>
                     </Link>
+                    {/* Drag-and-drop doesn't fire on touch devices — this select is the
+                        only way to change stage on mobile/tablet. */}
+                    <Select
+                      className="mt-2 py-1 text-[11px]"
+                      value={stage}
+                      onChange={(e) => moveLead(lead.id, e.target.value as PipelineStage)}
+                    >
+                      {PIPELINE_STAGES.map((s) => <option key={s} value={s}>{labelize(s)}</option>)}
+                    </Select>
                   </div>
                 ))}
               </div>

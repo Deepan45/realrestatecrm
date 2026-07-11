@@ -111,6 +111,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     setNotifications((n) => n.map((x) => ({ ...x, isRead: true })));
   }
 
+  async function openNotification(n: Notification) {
+    setNotifOpen(false);
+    if (!n.isRead) {
+      await api.post(`/notifications/${n.id}/read`).catch(() => {});
+      setUnread((u) => Math.max(0, u - 1));
+      setNotifications((list) => list.map((x) => (x.id === n.id ? { ...x, isRead: true } : x)));
+    }
+    if (n.meta?.leadId) router.push(`/leads/${n.meta.leadId}`);
+  }
+
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
@@ -211,10 +221,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     <button
                       key={n.id}
                       className={`block w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 ${n.isRead ? "text-slate-500" : "font-medium text-slate-800"}`}
-                      onClick={() => {
-                        setNotifOpen(false);
-                        if (n.meta?.leadId) router.push(`/leads/${n.meta.leadId}`);
-                      }}
+                      onClick={() => openNotification(n)}
                     >
                       <span className="block">{n.title}</span>
                       <span className="text-xs text-slate-400">{fmtDate(n.createdAt, true)}</span>

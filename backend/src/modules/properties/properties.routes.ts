@@ -15,7 +15,7 @@ import { prisma } from "../../lib/prisma";
 import { badRequest, notFound } from "../../lib/errors";
 import { propertyEditors, requireAuth, requireRole } from "../../middleware/auth";
 import { validate } from "../../middleware/validate";
-import { UPLOAD_DIR, fileUpload, imageUpload, videoUpload } from "../../middleware/upload";
+import { UPLOAD_DIR, fileUpload, imageUpload, verifyImageContent, verifyVideoContent, videoUpload } from "../../middleware/upload";
 import path from "path";
 import { audit } from "../../services/audit.service";
 import { notify } from "../../services/notification.service";
@@ -228,6 +228,7 @@ router.post(
   "/:id/images",
   requireRole(...propertyEditors),
   imageUpload.array("images", 12),
+  verifyImageContent,
   async (req, res, next) => {
     try {
       const property = await prisma.property.findUnique({
@@ -278,6 +279,7 @@ router.post(
   "/:id/video",
   requireRole(...propertyEditors),
   videoUpload.single("video"),
+  verifyVideoContent,
   async (req, res, next) => {
     try {
       const property = await prisma.property.findUnique({ where: { id: req.params.id } });
