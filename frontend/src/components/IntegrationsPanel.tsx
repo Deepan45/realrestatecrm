@@ -206,7 +206,7 @@ export default function IntegrationsPanel() {
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="API Key"><Input type="password" value={openai.form.geminiApiKey} onChange={(e) => openai.set("geminiApiKey", e.target.value)} placeholder="AIza…" /></Field>
             <Field label="Model">
-              <Input list="gemini-models" value={openai.form.geminiModel} onChange={(e) => openai.set("geminiModel", e.target.value)} placeholder="gemini-1.5-flash" />
+              <Input list="gemini-models" value={openai.form.geminiModel} onChange={(e) => openai.set("geminiModel", e.target.value)} placeholder="gemini-2.0-flash" />
               <datalist id="gemini-models">
                 <option value="gemini-2.0-flash" />
                 <option value="gemini-1.5-flash" />

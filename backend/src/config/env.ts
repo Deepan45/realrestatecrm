@@ -40,12 +40,14 @@ export const env = {
   },
   gemini: {
     apiKey: process.env.GEMINI_API_KEY || "",
-    model: process.env.GEMINI_MODEL || "gemini-1.5-flash",
+    // Google has been retiring 1.5-family models for newer free-tier API keys in favor
+    // of 2.0 — default to what's actually available on a fresh key.
+    model: process.env.GEMINI_MODEL || "gemini-2.0-flash",
     apiUrl: process.env.GEMINI_API_URL || "https://generativelanguage.googleapis.com/v1beta/models",
-    // USD per 1,000,000 tokens — defaults match gemini-1.5-flash's public pricing at the
+    // USD per 1,000,000 tokens — defaults match gemini-2.0-flash's public pricing at the
     // time this was written; update if your model/plan differs.
-    inputPricePerMillion: Number(process.env.GEMINI_INPUT_PRICE_PER_MILLION || 0.075),
-    outputPricePerMillion: Number(process.env.GEMINI_OUTPUT_PRICE_PER_MILLION || 0.3),
+    inputPricePerMillion: Number(process.env.GEMINI_INPUT_PRICE_PER_MILLION || 0.1),
+    outputPricePerMillion: Number(process.env.GEMINI_OUTPUT_PRICE_PER_MILLION || 0.4),
   },
   smtp: {
     host: process.env.SMTP_HOST || "",
