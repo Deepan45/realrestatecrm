@@ -8,13 +8,13 @@ export interface SendResult {
 }
 
 export interface WhatsAppProvider {
-  sendText(toNumber: string, body: string, contactName?: string): Promise<SendResult>;
+  sendText(toNumber: string, body: string, contactName?: string, mediaUrl?: string): Promise<SendResult>;
 }
 
 /** WhatsApp Cloud API (Meta Graph API) provider. */
 class CloudApiProvider implements WhatsAppProvider {
   constructor(private settings: WhatsAppSettings) {}
-  async sendText(toNumber: string, body: string): Promise<SendResult> {
+  async sendText(toNumber: string, body: string, _contactName?: string, mediaUrl?: string): Promise<SendResult> {
     const url = `${this.settings.cloudApiUrl}/${this.settings.phoneNumberId}/messages`;
     try {
       const res = await fetch(url, {
@@ -23,12 +23,13 @@ class CloudApiProvider implements WhatsAppProvider {
           Authorization: `Bearer ${this.settings.accessToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          messaging_product: "whatsapp",
-          to: toNumber.replace(/[^\d+]/g, ""),
-          type: "text",
-          text: { body },
-        }),
+        // WhatsApp caps image captions at 1024 chars — session (non-template) messages
+        // support this directly, unlike SmartPing's campaign API below.
+        body: JSON.stringify(
+          mediaUrl
+            ? { messaging_product: "whatsapp", to: toNumber.replace(/[^\d+]/g, ""), type: "image", image: { link: mediaUrl, caption: body.slice(0, 1024) } }
+            : { messaging_product: "whatsapp", to: toNumber.replace(/[^\d+]/g, ""), type: "text", text: { body } }
+        ),
       });
       const data = (await res.json()) as { messages?: { id: string }[]; error?: { message: string } };
       if (!res.ok || data.error) {
@@ -50,6 +51,7 @@ class CloudApiProvider implements WhatsAppProvider {
 class Msg91Provider implements WhatsAppProvider {
   constructor(private settings: WhatsAppSettings) {}
   async sendText(toNumber: string, body: string): Promise<SendResult> {
+    // MSG91's media-message shape isn't wired up here yet — session messages stay text-only.
     // MSG91 expects numbers as digits with country code, no "+"
     const to = toNumber.replace(/\D/g, "");
     try {
@@ -116,7 +118,7 @@ class Msg91Provider implements WhatsAppProvider {
  */
 class SmartPingProvider implements WhatsAppProvider {
   constructor(private settings: WhatsAppSettings) {}
-  async sendText(toNumber: string, body: string, contactName?: string): Promise<SendResult> {
+  async sendText(toNumber: string, body: string, contactName?: string, mediaUrl?: string): Promise<SendResult> {
     if (!this.settings.smartpingApiKey || !this.settings.smartpingCampaignName) {
       return { status: MessageStatus.FAILED, error: "SmartPing is not configured — set its API key and campaign name in Settings → Integrations" };
     }
@@ -141,7 +143,12 @@ class SmartPingProvider implements WhatsAppProvider {
           userName: contactName || "Customer",
           source: "RealRest CRM",
           templateParams: [templateParam],
-          media: {},
+          // Actually attaches the property photo instead of just a text link — but this
+          // only takes effect if the approved WhatsApp template has an Image header
+          // component; a body-only template (like the one documented above) can't carry
+          // media regardless of what's sent here, since WhatsApp ties media to the
+          // template's structure, not the per-send request.
+          media: mediaUrl ? { url: mediaUrl, filename: "property.jpg" } : {},
           buttons: [],
           carouselCards: [],
           location: {},
@@ -164,8 +171,8 @@ class SmartPingProvider implements WhatsAppProvider {
 
 /** Development provider: logs the message and reports it as sent. */
 class MockProvider implements WhatsAppProvider {
-  async sendText(toNumber: string, body: string): Promise<SendResult> {
-    console.log(`[whatsapp:mock] to=${toNumber}\n${body}`);
+  async sendText(toNumber: string, body: string, _contactName?: string, mediaUrl?: string): Promise<SendResult> {
+    console.log(`[whatsapp:mock] to=${toNumber}${mediaUrl ? ` media=${mediaUrl}` : ""}\n${body}`);
     return { status: MessageStatus.SENT, providerMessageId: `mock-${Date.now()}` };
   }
 }
@@ -176,14 +183,14 @@ class MockProvider implements WhatsAppProvider {
  * updating credentials from Settings → Integrations takes effect immediately without
  * a server restart.
  */
-export async function sendWhatsApp(toNumber: string, body: string, contactName?: string): Promise<SendResult> {
+export async function sendWhatsApp(toNumber: string, body: string, contactName?: string, mediaUrl?: string): Promise<SendResult> {
   const settings = (await getIntegrationSettings()).whatsapp;
   const provider: WhatsAppProvider =
     settings.provider === "cloud" ? new CloudApiProvider(settings)
     : settings.provider === "msg91" ? new Msg91Provider(settings)
     : settings.provider === "smartping" ? new SmartPingProvider(settings)
     : new MockProvider();
-  return provider.sendText(toNumber, body, contactName);
+  return provider.sendText(toNumber, body, contactName, mediaUrl);
 }
 
 /** Replace {{placeholders}} in a template body with values. */

@@ -769,18 +769,22 @@ router.post("/:id/send-whatsapp", validate(sendWhatsAppSchema), async (req, res,
         })
       : [];
 
+    // Only one image can actually be attached as media per WhatsApp message — the first
+    // property's photo goes out as a real attachment (see sendWhatsApp call below), so it
+    // doesn't need its URL pasted as text too. Any additional properties still get a link.
     const propertyBlock = properties
-      .map((p) => {
+      .map((p, i) => {
         const img = resolveMediaUrl(p.images[0]?.url);
         return [
           `🏠 *${p.title}*`,
           `💰 ${p.currency} ${Number(p.price).toLocaleString("en-US")}`,
           `📍 ${p.location}`,
           p.description ? p.description.slice(0, 160) : null,
-          img ? `🖼 ${img}` : null,
+          img && i > 0 ? `🖼 ${img}` : null,
         ].filter(Boolean).join("\n");
       })
       .join("\n\n");
+    const primaryImageUrl = resolveMediaUrl(properties[0]?.images[0]?.url) ?? undefined;
 
     let body: string;
     const template = templateKey
@@ -800,7 +804,7 @@ router.post("/:id/send-whatsapp", validate(sendWhatsAppSchema), async (req, res,
       throw badRequest("Provide propertyIds, a templateKey, or a customMessage");
     }
 
-    const result = await sendWhatsApp(toNumber, body, lead.fullName);
+    const result = await sendWhatsApp(toNumber, body, lead.fullName, primaryImageUrl);
 
     const log = await prisma.whatsAppLog.create({
       data: {
