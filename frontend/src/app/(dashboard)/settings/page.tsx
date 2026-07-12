@@ -119,7 +119,7 @@ export default function SettingsPage() {
               {templates.map((t) => (
                 <div key={t.id} className="flex items-start justify-between gap-3 px-4 py-3">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium">{t.name}</span>
                       <code className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] text-slate-500">{t.key}</code>
                       <Badge value={t.isActive ? "ACTIVE" : "INACTIVE"} />
@@ -146,7 +146,7 @@ export default function SettingsPage() {
 
       <Modal open={showForm} onClose={() => setShowForm(false)} title={editing ? "Edit template" : "New WhatsApp template"} wide>
         <form onSubmit={saveTemplate} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Key * (lowercase, - and _ only)">
               <Input required disabled={!!editing} value={form.key} onChange={(e) => setForm((f) => ({ ...f, key: e.target.value }))} placeholder="follow_up" />
             </Field>

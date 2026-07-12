@@ -366,14 +366,14 @@ export default function LeadDetailPage() {
 
           {/* History tabs */}
           <Card>
-            <div className="flex border-b border-slate-200">
+            <div className="flex overflow-x-auto border-b border-slate-200">
               {(isPartner
                 ? ([["partners", `Partner shares (${lead.partnerShares.length})`]] as const)
                 : ([["timeline", "Activity timeline"], ["whatsapp", `WhatsApp (${lead.whatsappLogs.length})`], ["partners", `Partner shares (${lead.partnerShares.length})`], ["pipeline", "Pipeline history"]] as const)
               ).map(([key, label]) => (
                 <button
                   key={key}
-                  className={`px-4 py-2.5 text-sm font-medium ${tab === key ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
+                  className={`shrink-0 whitespace-nowrap px-4 py-2.5 text-sm font-medium ${tab === key ? "border-b-2 border-brand-600 text-brand-700" : "text-slate-500 hover:text-slate-700"}`}
                   onClick={() => setTab(key)}
                 >
                   {label}

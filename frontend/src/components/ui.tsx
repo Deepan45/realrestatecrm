@@ -149,14 +149,14 @@ export function Modal({
   return (
     <div className="animate-fade-in fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/50 p-4 backdrop-blur-sm sm:p-8" onClick={onClose}>
       <div
-        className={`animate-pop-in w-full ${wide ? "max-w-4xl" : "max-w-lg"} rounded-2xl bg-white shadow-pop ring-1 ring-slate-900/5`}
+        className={`animate-pop-in flex max-h-[90vh] w-full flex-col ${wide ? "max-w-4xl" : "max-w-lg"} rounded-2xl bg-white shadow-pop ring-1 ring-slate-900/5`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-3">
           <h3 className="text-sm font-semibold text-slate-800">{title}</h3>
           <button onClick={onClose} className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"><XIcon className="h-4 w-4" /></button>
         </div>
-        <div className="p-5">{children}</div>
+        <div className="overflow-y-auto p-5">{children}</div>
       </div>
     </div>
   );
@@ -203,7 +203,7 @@ export function Pagination({
   // Keep the record count visible even with a single page — it's the only place the
   // user sees how many results their filters produced.
   return (
-    <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-sm text-slate-600">
+    <div className="flex flex-col gap-2 border-t border-slate-200 px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
       <span>
         {pages > 1 ? `Page ${page} of ${pages} · ` : ""}{total} {total === 1 ? "record" : "records"}
       </span>

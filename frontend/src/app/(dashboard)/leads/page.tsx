@@ -153,7 +153,7 @@ function LeadsContent() {
       <ErrorBanner message={error} />
 
       <Card className="p-3">
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-6">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-6">
           <Input placeholder="Search name / phone / email…" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} className="col-span-2" />
           <Select value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }}>
             <option value="">All statuses</option>
@@ -195,7 +195,7 @@ function LeadsContent() {
           <EmptyState message="No leads match your filters." />
         ) : (
           <>
-            <div className="max-h-[75vh] overflow-x-auto overflow-y-auto">
+            <div className="hidden max-h-[75vh] overflow-x-auto overflow-y-auto md:block">
               <table className="w-full text-sm">
                 <thead className="sticky top-0 z-10 bg-white">
                   <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
@@ -252,6 +252,49 @@ function LeadsContent() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Mobile card list — the wide table above is unusable below md, so this is
+                the only view on a phone. */}
+            <div className="max-h-[75vh] divide-y divide-slate-100 overflow-y-auto md:hidden">
+              {result.data.map((lead) => (
+                <div key={lead.id} className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <Link href={`/leads/${lead.id}`} className="font-medium text-brand-700 hover:underline">{lead.fullName}</Link>
+                      <div className="text-xs text-slate-500">{lead.mobile}</div>
+                    </div>
+                    <Badge value={lead.status} />
+                  </div>
+                  <div className="mt-1.5 text-xs text-slate-600">
+                    {labelize(lead.propertyType)} {lead.bedrooms != null ? `· ${lead.bedrooms}BR` : ""}
+                    {(lead.preferredArea || lead.city) && <> · {lead.preferredArea || lead.city}</>}
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                    <span>{lead.budgetMax ? fmtMoney(lead.budgetMax, lead.currency) : "—"}</span>
+                    <span>{lead.assignedTo?.name ?? "Unassigned"}</span>
+                    <span>Follow-up: {fmtDate(lead.followUpAt)}</span>
+                    <Badge value={lead.source} />
+                  </div>
+                  <div className="mt-2 flex items-center justify-end gap-1">
+                    <Link href={`/leads/${lead.id}`} title="View" className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700">
+                      <EyeIcon className="h-4 w-4" />
+                    </Link>
+                    {hasRole("SALES_MANAGER", "SALES_EXECUTIVE") && (
+                      <>
+                        <button title="Edit" className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700" onClick={() => setEditingLead(lead)}>
+                          <PencilIcon className="h-4 w-4" />
+                        </button>
+                        {hasRole("SALES_MANAGER") && (
+                          <button title="Delete" className="rounded-md p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600" onClick={() => setDeletingLead(lead)}>
+                            <TrashIcon className="h-4 w-4" />
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
             <Pagination page={result.page} pageSize={result.pageSize} total={result.total} onPage={setPage} />
           </>

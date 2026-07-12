@@ -75,7 +75,7 @@ export default function ReportsPage() {
         title="Reports & Analytics"
         subtitle="Performance across leads, staff, partners, and inventory"
         actions={
-          <div className="flex items-center gap-2 text-sm">
+          <div className="flex flex-wrap items-center gap-2 text-sm">
             <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-auto" />
             <span className="text-slate-400">to</span>
             <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-auto" />
@@ -88,9 +88,9 @@ export default function ReportsPage() {
       <Card className="p-4">
         <h3 className="mb-3 text-sm font-semibold">Monthly leads (last 12 months)</h3>
         {monthly.length === 0 ? <p className="text-sm text-slate-400">No data yet.</p> : (
-          <div className="flex h-40 items-end gap-2">
+          <div className="flex h-40 items-end gap-2 overflow-x-auto">
             {monthly.map((m) => (
-              <div key={m.month} className="flex flex-1 flex-col items-center gap-1">
+              <div key={m.month} className="flex min-w-[28px] flex-1 flex-col items-center gap-1">
                 <div className="flex w-full flex-1 items-end justify-center gap-0.5">
                   <div className="w-1/2 rounded-t bg-brand-400" style={{ height: `${(m.total / maxMonth) * 100}%` }} title={`${m.total} leads`} />
                   <div className="w-1/2 rounded-t bg-emerald-400" style={{ height: `${(m.converted / maxMonth) * 100}%` }} title={`${m.converted} converted`} />

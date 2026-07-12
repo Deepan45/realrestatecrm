@@ -209,7 +209,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 )}
               </button>
               {notifOpen && (
-                <div className="animate-pop-in absolute right-0 mt-2 max-h-96 w-80 overflow-y-auto rounded-xl border border-slate-200/80 bg-white shadow-pop">
+                <div className="animate-pop-in fixed left-4 right-4 top-16 z-30 max-h-96 w-auto overflow-y-auto rounded-xl border border-slate-200/80 bg-white shadow-pop sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80">
                   <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
                     <span className="text-sm font-semibold">Notifications</span>
                     {unread > 0 && (

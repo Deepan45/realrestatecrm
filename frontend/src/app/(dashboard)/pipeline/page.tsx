@@ -79,13 +79,13 @@ export default function PipelinePage() {
         subtitle="Drag cards between stages — statuses and automations follow"
       />
       <ErrorBanner message={error} />
-      <div className="flex gap-3 overflow-x-auto pb-4">
+      <div className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-4">
         {PIPELINE_STAGES.map((stage) => {
           const { leads, total } = board[stage] ?? { leads: [], total: 0 };
           return (
             <div
               key={stage}
-              className={`w-64 shrink-0 rounded-xl border border-slate-200 border-t-4 bg-slate-100/60 ${STAGE_COLORS[stage]} ${dropTarget === stage ? "ring-2 ring-brand-400" : ""}`}
+              className={`w-64 shrink-0 snap-start rounded-xl border border-slate-200 border-t-4 bg-slate-100/60 ${STAGE_COLORS[stage]} ${dropTarget === stage ? "ring-2 ring-brand-400" : ""}`}
               onDragOver={(e) => { e.preventDefault(); setDropTarget(stage); }}
               onDragLeave={() => setDropTarget(null)}
               onDrop={(e) => {

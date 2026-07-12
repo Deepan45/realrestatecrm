@@ -111,7 +111,7 @@ export default function PropertiesPage() {
       <ErrorBanner message={error} />
 
       <Card className="p-3">
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-6">
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-6">
           <Input placeholder="Search title / location…" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} className="col-span-2" />
           <Select value={type} onChange={(e) => { setType(e.target.value); setPage(1); }}>
             <option value="">All types</option>
