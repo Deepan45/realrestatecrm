@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { ApiError, api } from "@/lib/api";
 import { Button, ErrorBanner, Field, Input, Select, Textarea } from "@/components/ui";
 import { Lead, LEAD_SOURCES, PRIORITIES, PROPERTY_TYPES, User, labelize } from "@/lib/types";
 
@@ -90,7 +90,14 @@ export default function LeadForm({ initial, onSaved, onCancel }: Props) {
         : await api.post<{ data: Lead }>("/leads", payload);
       onSaved(res.data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
+      // Backend zod rejections come back with per-field paths — point at the actual
+      // fields instead of showing an unhelpful flat "Validation failed" banner.
+      if (err instanceof ApiError && err.errors?.length) {
+        setFieldErrors(Object.fromEntries(err.errors.map((e) => [e.path, e.message])));
+        setError("Please fix the highlighted fields below");
+      } else {
+        setError(err instanceof Error ? err.message : "Save failed");
+      }
     } finally {
       setBusy(false);
     }
@@ -99,6 +106,7 @@ export default function LeadForm({ initial, onSaved, onCancel }: Props) {
   return (
     <form onSubmit={submit} className="space-y-4">
       <ErrorBanner message={error} />
+      <h4 className="border-b border-slate-100 pb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Contact</h4>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Full name *" error={fieldErrors.fullName}>
           <Input required value={form.fullName} onChange={(e) => set("fullName", sanitizeName(e.target.value))} />
@@ -109,15 +117,18 @@ export default function LeadForm({ initial, onSaved, onCancel }: Props) {
         <Field label="WhatsApp number" error={fieldErrors.whatsappNumber}>
           <Input type="tel" value={form.whatsappNumber ?? ""} onChange={(e) => set("whatsappNumber", sanitizePhone(e.target.value))} placeholder="defaults to mobile" />
         </Field>
-        <Field label="Email">
+        <Field label="Email" error={fieldErrors.email}>
           <Input type="email" value={form.email ?? ""} onChange={(e) => set("email", e.target.value)} />
         </Field>
-        <Field label="Country">
+        <Field label="Country" error={fieldErrors.country}>
           <Input value={form.country ?? ""} onChange={(e) => set("country", sanitizeName(e.target.value))} />
         </Field>
-        <Field label="City">
+        <Field label="City" error={fieldErrors.city}>
           <Input value={form.city ?? ""} onChange={(e) => set("city", sanitizeName(e.target.value))} />
         </Field>
+      </div>
+      <h4 className="border-b border-slate-100 pb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Requirement</h4>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Preferred area">
           <Input value={form.preferredArea ?? ""} onChange={(e) => set("preferredArea", e.target.value)} />
         </Field>
@@ -127,10 +138,10 @@ export default function LeadForm({ initial, onSaved, onCancel }: Props) {
             {PROPERTY_TYPES.map((t) => <option key={t} value={t}>{labelize(t)}</option>)}
           </Select>
         </Field>
-        <Field label="Budget min">
+        <Field label="Budget min" error={fieldErrors.budgetMin}>
           <Input type="number" min={0} value={form.budgetMin} onChange={(e) => set("budgetMin", e.target.value)} />
         </Field>
-        <Field label="Budget max">
+        <Field label="Budget max" error={fieldErrors.budgetMax}>
           <Input type="number" min={0} value={form.budgetMax} onChange={(e) => set("budgetMax", e.target.value)} />
         </Field>
         <Field label="Currency">
@@ -141,6 +152,9 @@ export default function LeadForm({ initial, onSaved, onCancel }: Props) {
         <Field label="Bedrooms">
           <Input type="number" min={0} value={form.bedrooms} onChange={(e) => set("bedrooms", e.target.value)} />
         </Field>
+      </div>
+      <h4 className="border-b border-slate-100 pb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Tracking</h4>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Field label="Source">
           <Select value={form.source} onChange={(e) => set("source", e.target.value)}>
             {LEAD_SOURCES.map((s) => <option key={s} value={s}>{labelize(s)}</option>)}

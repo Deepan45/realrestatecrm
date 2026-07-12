@@ -4,14 +4,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { api, downloadFile, qs, resolveMediaUrl } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { Badge, Button, Card, EmptyState, ErrorBanner, Input, PageHeader, Pagination, Select, Spinner } from "@/components/ui";
+import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBanner, Input, PageHeader, Pagination, Select, Spinner } from "@/components/ui";
 import { AVAILABILITY, PROPERTY_CATEGORIES, PROPERTY_TYPES, Paginated, Property, fmtMoney, labelize } from "@/lib/types";
 import { BuildingIcon, DownloadIcon, EyeIcon, PencilIcon, TrashIcon, UploadCloudIcon } from "@/components/icons";
+import { useToast } from "@/components/toast";
 
 export default function PropertiesPage() {
   const { hasRole } = useAuth();
   const canEdit = hasRole("PROPERTY_STAFF", "SALES_MANAGER");
   const canExport = hasRole();
+  const toast = useToast();
   const [result, setResult] = useState<Paginated<Property> | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -23,6 +25,7 @@ export default function PropertiesPage() {
   const [priceMax, setPriceMax] = useState("");
   const [importResult, setImportResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deletingProperty, setDeletingProperty] = useState<Property | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => {
@@ -68,12 +71,14 @@ export default function PropertiesPage() {
   }
 
   async function deleteProperty(property: Property) {
-    if (!confirm(`Delete "${property.title}"? This cannot be undone.`)) return;
     try {
       await api.del(`/properties/${property.id}`);
+      toast(`Deleted "${property.title}"`);
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setDeletingProperty(null);
     }
   }
 
@@ -125,6 +130,17 @@ export default function PropertiesPage() {
             <Input type="number" placeholder="Max price" value={priceMax} onChange={(e) => { setPriceMax(e.target.value); setPage(1); }} />
           </div>
         </div>
+        {(q || type || category || status || bedrooms || priceMax) && (
+          <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+            <span>{result ? `${result.total} ${result.total === 1 ? "property matches" : "properties match"} your filters` : "Filtering…"}</span>
+            <button
+              className="font-medium text-brand-600 hover:underline"
+              onClick={() => { setQ(""); setType(""); setCategory(""); setStatus(""); setBedrooms(""); setPriceMax(""); setPage(1); }}
+            >
+              Clear all filters
+            </button>
+          </div>
+        )}
       </Card>
 
       {loading ? (
@@ -165,7 +181,7 @@ export default function PropertiesPage() {
                     <Link href={`/properties/${p.id}?edit=true`} title="Edit" className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700">
                       <PencilIcon className="h-4 w-4" />
                     </Link>
-                    <button title="Delete" className="rounded-md p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600" onClick={() => deleteProperty(p)}>
+                    <button title="Delete" className="rounded-md p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600" onClick={() => setDeletingProperty(p)}>
                       <TrashIcon className="h-4 w-4" />
                     </button>
                   </div>
@@ -178,6 +194,14 @@ export default function PropertiesPage() {
           </Card>
         </>
       )}
+
+      <ConfirmDialog
+        open={!!deletingProperty}
+        title="Delete property"
+        message={`Delete "${deletingProperty?.title}" and all its photos and video? This cannot be undone.`}
+        onConfirm={() => deletingProperty && deleteProperty(deletingProperty)}
+        onCancel={() => setDeletingProperty(null)}
+      />
     </div>
   );
 }

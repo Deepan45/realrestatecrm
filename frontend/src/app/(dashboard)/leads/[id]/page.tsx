@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { api, resolveMediaUrl } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -13,6 +14,7 @@ import {
   fmtDate, fmtMoney, labelize,
 } from "@/lib/types";
 import { ArrowRightLeftIcon, BuildingIcon, SearchIcon, SendIcon } from "@/components/icons";
+import { useToast } from "@/components/toast";
 
 interface LeadDetail extends Lead {
   notes: { id: string; body: string; createdAt: string; author: { name: string } }[];
@@ -34,6 +36,7 @@ interface Template { id: string; key: string; name: string; body: string; isActi
 export default function LeadDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { user, hasRole } = useAuth();
+  const toast = useToast();
   const [lead, setLead] = useState<LeadDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -116,12 +119,13 @@ export default function LeadDetailPage() {
     });
   }
 
-  async function act(fn: () => Promise<unknown>, after?: () => void) {
+  async function act(fn: () => Promise<unknown>, after?: () => void, successMessage?: string) {
     setActionError(null);
     try {
       await fn();
       load();
       after?.();
+      if (successMessage) toast(successMessage);
     } catch (e) {
       setActionError(e instanceof Error ? e.message : "Action failed");
     }
@@ -132,7 +136,8 @@ export default function LeadDetailPage() {
     setSending(true);
     await act(
       () => api.post(`/leads/${id}/send-whatsapp`, { propertyIds: [...selected], templateKey: templateKey || undefined, language: whatsAppLanguage }),
-      () => { setSelected(new Set()); setTab("whatsapp"); }
+      () => { setSelected(new Set()); setTab("whatsapp"); },
+      `WhatsApp message sent to ${lead?.whatsappNumber || lead?.mobile || "the lead"}`
     );
     setSending(false);
   }
@@ -166,6 +171,9 @@ export default function LeadDetailPage() {
 
   return (
     <div className="space-y-4">
+      {!isPartner && (
+        <Link href="/leads" className="inline-block text-sm text-slate-500 hover:text-brand-600 hover:underline">← Back to leads</Link>
+      )}
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -181,7 +189,7 @@ export default function LeadDetailPage() {
             <Select
               className="w-auto"
               value={lead.stage}
-              onChange={(e) => act(() => api.post(`/leads/${id}/change-stage`, { stage: e.target.value }))}
+              onChange={(e) => act(() => api.post(`/leads/${id}/change-stage`, { stage: e.target.value }), undefined, `Stage updated to ${labelize(e.target.value)}`)}
             >
               {PIPELINE_STAGES.map((s) => <option key={s} value={s}>{labelize(s)}</option>)}
             </Select>
@@ -191,7 +199,7 @@ export default function LeadDetailPage() {
                 <Select
                   className="w-auto"
                   value={lead.assignedToId ?? ""}
-                  onChange={(e) => e.target.value && act(() => api.post(`/leads/${id}/assign`, { assignedToId: e.target.value, expectedAssignedToId: lead.assignedToId }))}
+                  onChange={(e) => e.target.value && act(() => api.post(`/leads/${id}/assign`, { assignedToId: e.target.value, expectedAssignedToId: lead.assignedToId }), undefined, `Lead assigned to ${staff.find((s) => s.id === e.target.value)?.name ?? "staff member"}`)}
                   title={hasRole("SALES_MANAGER") ? "Assign to a staff member" : "Transfer this lead to a peer"}
                 >
                   <option value="">{hasRole("SALES_MANAGER") ? "Assign to…" : "Transfer to…"}</option>
@@ -233,7 +241,7 @@ export default function LeadDetailPage() {
                 <Button
                   size="sm"
                   disabled={!followUpAt}
-                  onClick={() => act(() => api.post(`/leads/${id}/follow-up`, { followUpAt }), () => setFollowUpAt(""))}
+                  onClick={() => act(() => api.post(`/leads/${id}/follow-up`, { followUpAt }), () => setFollowUpAt(""), "Follow-up scheduled")}
                 >
                   Set
                 </Button>
@@ -246,7 +254,7 @@ export default function LeadDetailPage() {
             <div className="mb-3 flex gap-2">
               <Textarea rows={2} placeholder="Add an internal note…" value={noteBody} onChange={(e) => setNoteBody(e.target.value)} />
             </div>
-            <Button size="sm" disabled={!noteBody.trim()} onClick={() => act(() => api.post(`/leads/${id}/add-note`, { body: noteBody }), () => setNoteBody(""))}>
+            <Button size="sm" disabled={!noteBody.trim()} onClick={() => act(() => api.post(`/leads/${id}/add-note`, { body: noteBody }), () => setNoteBody(""), "Note added")}>
               Add note
             </Button>
             <div className="mt-3 space-y-2">
@@ -288,7 +296,7 @@ export default function LeadDetailPage() {
                       <Button size="sm" onClick={sendWhatsApp} disabled={sending}>
                         {sending ? "Sending…" : <><SendIcon className="mr-1.5 inline h-3.5 w-3.5" />Send {selected.size} via WhatsApp</>}
                       </Button>
-                      <Button variant="secondary" size="sm" onClick={() => act(() => api.post(`/leads/${id}/shortlist`, { propertyIds: [...selected] }))}>
+                      <Button variant="secondary" size="sm" onClick={() => act(() => api.post(`/leads/${id}/shortlist`, { propertyIds: [...selected] }), undefined, `${selected.size} ${selected.size === 1 ? "property" : "properties"} shortlisted`)}>
                         Save shortlist
                       </Button>
                     </>
@@ -467,7 +475,8 @@ export default function LeadDetailPage() {
               disabled={!shareForm.partnerId}
               onClick={() => act(
                 () => api.post(`/leads/${id}/share-partner`, shareForm),
-                () => { setShowShare(false); setShareForm({ partnerId: "", notesShared: "", sendWhatsApp: true }); setTab("partners"); }
+                () => { setShowShare(false); setShareForm({ partnerId: "", notesShared: "", sendWhatsApp: true }); setTab("partners"); },
+                `Lead shared with ${partners.find((p) => p.id === shareForm.partnerId)?.name ?? "partner"}`
               )}
             >
               Share lead

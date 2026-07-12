@@ -162,6 +162,23 @@ export function Modal({
   );
 }
 
+/** Styled replacement for window.confirm on destructive actions — echoes the record's
+ * name back so the user can see exactly what they're about to delete, instead of the
+ * easy-to-reflex-dismiss OS dialog. */
+export function ConfirmDialog({
+  open, title, message, confirmLabel = "Delete", onConfirm, onCancel,
+}: { open: boolean; title: string; message: string; confirmLabel?: string; onConfirm: () => void; onCancel: () => void }) {
+  return (
+    <Modal open={open} onClose={onCancel} title={title}>
+      <p className="text-sm text-slate-600">{message}</p>
+      <div className="mt-4 flex justify-end gap-2">
+        <Button type="button" variant="secondary" onClick={onCancel}>Cancel</Button>
+        <Button type="button" variant="danger" onClick={onConfirm}>{confirmLabel}</Button>
+      </div>
+    </Modal>
+  );
+}
+
 export function Spinner() {
   return (
     <div className="flex justify-center py-12">
@@ -183,16 +200,19 @@ export function Pagination({
   page, pageSize, total, onPage,
 }: { page: number; pageSize: number; total: number; onPage: (p: number) => void }) {
   const pages = Math.max(Math.ceil(total / pageSize), 1);
-  if (pages <= 1) return null;
+  // Keep the record count visible even with a single page — it's the only place the
+  // user sees how many results their filters produced.
   return (
     <div className="flex items-center justify-between border-t border-slate-200 px-4 py-3 text-sm text-slate-600">
       <span>
-        Page {page} of {pages} · {total} records
+        {pages > 1 ? `Page ${page} of ${pages} · ` : ""}{total} {total === 1 ? "record" : "records"}
       </span>
-      <div className="flex gap-2">
-        <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => onPage(page - 1)}>← Prev</Button>
-        <Button variant="secondary" size="sm" disabled={page >= pages} onClick={() => onPage(page + 1)}>Next →</Button>
-      </div>
+      {pages > 1 && (
+        <div className="flex gap-2">
+          <Button variant="secondary" size="sm" disabled={page <= 1} onClick={() => onPage(page - 1)}>← Prev</Button>
+          <Button variant="secondary" size="sm" disabled={page >= pages} onClick={() => onPage(page + 1)}>Next →</Button>
+        </div>
+      )}
     </div>
   );
 }

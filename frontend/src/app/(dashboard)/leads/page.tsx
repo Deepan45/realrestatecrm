@@ -2,11 +2,12 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { api, downloadFile, qs } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import LeadForm from "@/components/LeadForm";
-import { Badge, Button, Card, EmptyState, ErrorBanner, Input, Modal, PageHeader, Pagination, Select, Spinner } from "@/components/ui";
+import { useToast } from "@/components/toast";
+import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorBanner, Input, Modal, PageHeader, Pagination, Select, Spinner } from "@/components/ui";
 import { DownloadIcon, EyeIcon, PencilIcon, TrashIcon, UploadCloudIcon, UsersIcon } from "@/components/icons";
 import {
   LEAD_SOURCES, LEAD_STATUSES, Lead, PROPERTY_TYPES, Paginated, User,
@@ -16,21 +17,33 @@ import {
 function LeadsContent() {
   const { hasRole } = useAuth();
   const params = useSearchParams();
+  const router = useRouter();
+  const toast = useToast();
   const [result, setResult] = useState<Paginated<Lead> | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  // All filters seed from the URL so browser Back / reload / a shared link land on the
+  // same filtered view instead of silently resetting everything to blank.
   const [q, setQ] = useState(params.get("q") ?? "");
-  const [status, setStatus] = useState("");
-  const [source, setSource] = useState("");
-  const [propertyType, setPropertyType] = useState("");
-  const [assignedToId, setAssignedToId] = useState("");
+  const [status, setStatus] = useState(params.get("status") ?? "");
+  const [source, setSource] = useState(params.get("source") ?? "");
+  const [propertyType, setPropertyType] = useState(params.get("propertyType") ?? "");
+  const [assignedToId, setAssignedToId] = useState(params.get("assignedToId") ?? "");
   const [followUpDue, setFollowUpDue] = useState(params.get("followUpDue") === "true");
   const [staff, setStaff] = useState<User[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [deletingLead, setDeletingLead] = useState<Lead | null>(null);
   const [importResult, setImportResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const hasActiveFilters = !!(q || status || source || propertyType || assignedToId || followUpDue);
+
+  function clearFilters() {
+    setQ(""); setStatus(""); setSource(""); setPropertyType(""); setAssignedToId(""); setFollowUpDue(false);
+    setPage(1);
+  }
 
   const load = useCallback(() => {
     setLoading(true);
@@ -45,6 +58,13 @@ function LeadsContent() {
     const t = setTimeout(load, q ? 300 : 0);
     return () => clearTimeout(t);
   }, [load, q]);
+
+  // Mirror filter state back into the URL (replace, not push, to avoid history spam) so
+  // reload and back-navigation restore the filtered view.
+  useEffect(() => {
+    router.replace(`/leads${qs({ q, status, source, propertyType, assignedToId, followUpDue: followUpDue || undefined })}`, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q, status, source, propertyType, assignedToId, followUpDue]);
 
   // Keep in sync with the header's global search — it navigates to /leads?q=... on
   // the same route, which doesn't remount this component, so the initial useState wouldn't pick it up.
@@ -91,12 +111,14 @@ function LeadsContent() {
   }
 
   async function deleteLead(lead: Lead) {
-    if (!confirm(`Delete ${lead.fullName}? This cannot be undone.`)) return;
     try {
       await api.del(`/leads/${lead.id}`);
+      toast(`Deleted ${lead.fullName}`);
       load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setDeletingLead(null);
     }
   }
 
@@ -158,6 +180,12 @@ function LeadsContent() {
             </label>
           </div>
         </div>
+        {hasActiveFilters && (
+          <div className="mt-2 flex items-center justify-between text-xs text-slate-500">
+            <span>{result ? `${result.total} ${result.total === 1 ? "lead matches" : "leads match"} your filters` : "Filtering…"}</span>
+            <button className="font-medium text-brand-600 hover:underline" onClick={clearFilters}>Clear all filters</button>
+          </div>
+        )}
       </Card>
 
       <Card>
@@ -167,9 +195,9 @@ function LeadsContent() {
           <EmptyState message="No leads match your filters." />
         ) : (
           <>
-            <div className="overflow-x-auto">
+            <div className="max-h-[75vh] overflow-x-auto overflow-y-auto">
               <table className="w-full text-sm">
-                <thead>
+                <thead className="sticky top-0 z-10 bg-white">
                   <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
                     <th className="px-4 py-3">Lead</th>
                     <th className="px-4 py-3">Requirement</th>
@@ -212,7 +240,7 @@ function LeadsContent() {
                                 <PencilIcon className="h-4 w-4" />
                               </button>
                               {hasRole("SALES_MANAGER") && (
-                                <button title="Delete" className="rounded-md p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600" onClick={() => deleteLead(lead)}>
+                                <button title="Delete" className="rounded-md p-1.5 text-slate-500 hover:bg-red-50 hover:text-red-600" onClick={() => setDeletingLead(lead)}>
                                   <TrashIcon className="h-4 w-4" />
                                 </button>
                               )}
@@ -239,6 +267,14 @@ function LeadsContent() {
           <LeadForm initial={editingLead} onSaved={() => { setEditingLead(null); load(); }} onCancel={() => setEditingLead(null)} />
         )}
       </Modal>
+
+      <ConfirmDialog
+        open={!!deletingLead}
+        title="Delete lead"
+        message={`Delete "${deletingLead?.fullName}" and all their notes, activity, and WhatsApp history? This cannot be undone.`}
+        onConfirm={() => deletingLead && deleteLead(deletingLead)}
+        onCancel={() => setDeletingLead(null)}
+      />
     </div>
   );
 }

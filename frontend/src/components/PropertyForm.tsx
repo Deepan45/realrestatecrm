@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, resolveMediaUrl } from "@/lib/api";
+import { ApiError, api, resolveMediaUrl } from "@/lib/api";
 import { Button, ErrorBanner, Field, Input, Select, Textarea } from "@/components/ui";
 import { AVAILABILITY, FURNISHING, PROPERTY_CATEGORIES, PROPERTY_TYPES, Property, labelize } from "@/lib/types";
 import { CameraIcon, MapPinIcon, UploadIcon, XIcon } from "@/components/icons";
@@ -125,7 +125,14 @@ export default function PropertyForm({ initial, onSaved }: { initial?: Property;
       // to unmount, so an error banner set here would never be seen.
       else router.push(`/properties/${saved.id}${uploadError ? `?uploadError=${encodeURIComponent(uploadError)}` : ""}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
+      // Backend zod rejections come back with per-field paths — point at the actual
+      // fields instead of showing an unhelpful flat "Validation failed" banner.
+      if (err instanceof ApiError && err.errors?.length) {
+        setFieldErrors(Object.fromEntries(err.errors.map((e) => [e.path, e.message])));
+        setError("Please fix the highlighted fields below");
+      } else {
+        setError(err instanceof Error ? err.message : "Save failed");
+      }
       setBusy(false);
     }
   }
@@ -211,8 +218,9 @@ export default function PropertyForm({ initial, onSaved }: { initial?: Property;
   return (
     <form onSubmit={submit} className="space-y-4">
       <ErrorBanner message={error} />
+      <h4 className="border-b border-slate-100 pb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Basics</h4>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Field label="Title *">
+        <Field label="Title *" error={fieldErrors.title}>
           <Input required value={form.title} onChange={(e) => set("title", e.target.value)} />
         </Field>
         <Field label="Type *">
@@ -225,13 +233,13 @@ export default function PropertyForm({ initial, onSaved }: { initial?: Property;
             {PROPERTY_CATEGORIES.map((c) => <option key={c} value={c}>{labelize(c)}</option>)}
           </Select>
         </Field>
-        <Field label="Location *">
+        <Field label="Location *" error={fieldErrors.location}>
           <Input required value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="e.g. Anna Nagar, Chennai" />
         </Field>
         <Field label="Address">
           <Input value={form.address ?? ""} onChange={(e) => set("address", e.target.value)} />
         </Field>
-        <Field label="Area (sqft)">
+        <Field label="Area (sqft)" error={fieldErrors.areaSqft}>
           <Input type="number" min={0} value={form.areaSqft} onChange={(e) => set("areaSqft", e.target.value)} />
         </Field>
         <Field label="Bedrooms">
@@ -246,7 +254,11 @@ export default function PropertyForm({ initial, onSaved }: { initial?: Property;
             {FURNISHING.map((f) => <option key={f} value={f}>{labelize(f)}</option>)}
           </Select>
         </Field>
-        <Field label="Price *">
+      </div>
+
+      <h4 className="border-b border-slate-100 pb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Pricing &amp; availability</h4>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Field label="Price *" error={fieldErrors.price}>
           <Input type="number" min={0} required value={form.price} onChange={(e) => set("price", e.target.value)} />
         </Field>
         <Field label="Currency">
@@ -259,6 +271,10 @@ export default function PropertyForm({ initial, onSaved }: { initial?: Property;
             {AVAILABILITY.map((s) => <option key={s} value={s}>{labelize(s)}</option>)}
           </Select>
         </Field>
+      </div>
+
+      <h4 className="border-b border-slate-100 pb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Owner &amp; contact</h4>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Field label="Owner / company">
           <Input value={form.ownerName ?? ""} onChange={(e) => set("ownerName", e.target.value)} />
         </Field>
@@ -269,6 +285,8 @@ export default function PropertyForm({ initial, onSaved }: { initial?: Property;
           <Input type="tel" value={form.contactPhone ?? ""} onChange={(e) => set("contactPhone", sanitizePhone(e.target.value))} />
         </Field>
       </div>
+
+      <h4 className="border-b border-slate-100 pb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Details</h4>
       <Field label="Amenities (comma separated)">
         <Input value={form.amenities} onChange={(e) => set("amenities", e.target.value)} placeholder="Pool, Gym, Parking" />
       </Field>
@@ -276,8 +294,9 @@ export default function PropertyForm({ initial, onSaved }: { initial?: Property;
         <Textarea rows={4} value={form.description ?? ""} onChange={(e) => set("description", e.target.value)} />
       </Field>
 
+      <h4 className="border-b border-slate-100 pb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Media &amp; location</h4>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Field label="YouTube video link">
+        <Field label="YouTube video link" error={fieldErrors.youtubeUrl}>
           <Input
             value={form.youtubeUrl}
             onChange={(e) => set("youtubeUrl", e.target.value)}

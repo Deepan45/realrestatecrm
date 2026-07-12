@@ -1,11 +1,13 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { api, resolveMediaUrl } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import PropertyForm from "@/components/PropertyForm";
-import { Badge, Button, Card, ErrorBanner, Spinner } from "@/components/ui";
+import { Badge, Button, Card, ConfirmDialog, ErrorBanner, Spinner } from "@/components/ui";
+import { useToast } from "@/components/toast";
 import { Property, fmtDate, fmtMoney, labelize } from "@/lib/types";
 import { BuildingIcon, MapPinIcon, VideoIcon } from "@/components/icons";
 import { youtubeEmbedUrl } from "@/lib/youtube";
@@ -16,22 +18,26 @@ function PropertyDetailContent() {
   const searchParams = useSearchParams();
   const { hasRole } = useAuth();
   const canEdit = hasRole("PROPERTY_STAFF", "SALES_MANAGER");
+  const toast = useToast();
   const [property, setProperty] = useState<Property | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(searchParams.get("uploadError"));
   const [editing, setEditing] = useState(searchParams.get("edit") === "true");
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   useEffect(() => {
     api.get<{ data: Property }>(`/properties/${id}`).then((r) => setProperty(r.data)).catch((e) => setError(e.message));
   }, [id, editing]);
 
   async function remove() {
-    if (!confirm("Delete this property? This cannot be undone.")) return;
     try {
       await api.del(`/properties/${id}`);
+      toast(`Deleted "${property?.title}"`);
       router.push("/properties");
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setConfirmingDelete(false);
     }
   }
 
@@ -56,6 +62,7 @@ function PropertyDetailContent() {
   return (
     <div className="space-y-4">
       <ErrorBanner message={actionError} />
+      <Link href="/properties" className="inline-block text-sm text-slate-500 hover:text-brand-600 hover:underline">← Back to properties</Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-lg font-semibold">{property.title}</h1>
@@ -67,10 +74,17 @@ function PropertyDetailContent() {
         {canEdit && (
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => setEditing(true)}>Edit</Button>
-            <Button variant="danger" onClick={remove}>Delete</Button>
+            <Button variant="danger" onClick={() => setConfirmingDelete(true)}>Delete</Button>
           </div>
         )}
       </div>
+      <ConfirmDialog
+        open={confirmingDelete}
+        title="Delete property"
+        message={`Delete "${property.title}" and all its photos and video? This cannot be undone.`}
+        onConfirm={remove}
+        onCancel={() => setConfirmingDelete(false)}
+      />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Card className="overflow-hidden lg:col-span-2">

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import { Spinner } from "@/components/ui";
+import { ToastProvider } from "@/components/toast";
 import { fmtDate } from "@/lib/types";
 import {
   BellIcon,
@@ -122,6 +123,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
+    <ToastProvider>
     <div className="flex min-h-screen">
       {/* Sidebar */}
       <aside
@@ -181,13 +183,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               e.preventDefault();
               if (searchValue.trim()) router.push(`/leads?q=${encodeURIComponent(searchValue.trim())}`);
             }}
-            className="hidden max-w-sm flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-500 transition focus-within:border-brand-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-500/15 lg:flex"
+            className="flex max-w-sm flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-500 transition focus-within:border-brand-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-500/15"
           >
             <SearchIcon className="h-4 w-4 shrink-0 text-slate-400" />
             <input
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
-              placeholder="Search leads by name, phone, or email…"
+              placeholder="Search leads…"
               className="w-full bg-transparent text-slate-700 outline-none placeholder:text-slate-400"
             />
           </form>
@@ -239,14 +241,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="text-[11px] font-medium capitalize text-brand-600">{user.role.replaceAll("_", " ").toLowerCase()}</div>
               </div>
             </div>
-            <button onClick={logout} className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50">
+            <button onClick={logout} title="Logout" className="flex items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-50">
               <LogOutIcon className="h-3.5 w-3.5" />
-              Logout
+              <span className="hidden sm:inline">Logout</span>
             </button>
           </div>
         </header>
         <main className="flex-1 p-4 lg:p-6">{children}</main>
       </div>
     </div>
+    </ToastProvider>
   );
 }
