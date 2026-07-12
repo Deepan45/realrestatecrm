@@ -18,7 +18,6 @@ import {
   LayoutDashboardIcon,
   LogOutIcon,
   MenuIcon,
-  NewspaperIcon,
   SearchIcon,
   SettingsIcon,
   SparklesIcon,
@@ -63,7 +62,6 @@ const NAV_SECTIONS = [
   {
     title: "Administration",
     items: [
-      { href: "/blog-admin", label: "Blog", icon: NewspaperIcon, roles: ["SALES_MANAGER"] },
       { href: "/users", label: "Users", icon: UserIcon, roles: [] },
       { href: "/audit-log", label: "Audit Log", icon: FileTextIcon, roles: [] },
       { href: "/settings", label: "Settings", icon: SettingsIcon, roles: ["SALES_MANAGER"] },
