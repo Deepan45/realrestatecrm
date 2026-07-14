@@ -18,6 +18,7 @@ import {
   LayoutDashboardIcon,
   LogOutIcon,
   MenuIcon,
+  MessageCircleIcon,
   SearchIcon,
   SettingsIcon,
   SparklesIcon,
@@ -50,6 +51,7 @@ const NAV_SECTIONS = [
     title: "AI & Channels",
     items: [
       { href: "/ai-agent", label: "AI Operating Agent", icon: SparklesIcon, roles: ["SALES_MANAGER", "SALES_EXECUTIVE", "PROPERTY_STAFF"] },
+      { href: "/whatsapp-log", label: "WhatsApp Log", icon: MessageCircleIcon, roles: ["SALES_MANAGER", "SALES_EXECUTIVE"] },
     ],
   },
   {
