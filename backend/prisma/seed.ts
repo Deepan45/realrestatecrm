@@ -86,6 +86,11 @@ async function main() {
     },
     // Automated stage-triggered messages (sent by the pipeline automation service, not chosen manually)
     {
+      key: "initial_contact_intro",
+      name: "Initial contact intro (auto)",
+      body: "Hi {{name}}! 👋 I'm {{agent}} from RealRest, following up on your enquiry. I'd love to understand your requirements better — what are you looking for?",
+    },
+    {
       key: "site_visit_before",
       name: "Site visit confirmation (auto)",
       body: "Hi {{name}}! 👋 Confirming your site visit scheduled for {{time}}. {{agent}} will meet you there — see you soon!",
@@ -94,6 +99,16 @@ async function main() {
       key: "site_visit_feedback",
       name: "Site visit feedback request (auto)",
       body: "Hi {{name}}, thanks for visiting the property today! We'd love your feedback — what did you think, and are you considering it further? — {{agent}}",
+    },
+    {
+      key: "negotiation_update",
+      name: "Negotiation check-in (auto)",
+      body: "Hi {{name}}, let's finalize the best terms for your new property. {{agent}} is ready to discuss pricing and next steps whenever you are!",
+    },
+    {
+      key: "bank_loan_assist",
+      name: "Bank loan assistance (auto)",
+      body: "Hi {{name}}, we're now at the loan/financing stage. {{agent}} can help coordinate with the bank and paperwork — let us know if you need any assistance!",
     },
     {
       key: "registration_testimonial",

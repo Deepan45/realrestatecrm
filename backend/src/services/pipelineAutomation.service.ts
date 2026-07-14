@@ -6,16 +6,26 @@ import { notify } from "./notification.service";
 type Agent = { id: string; name: string } | null;
 
 const TEMPLATE_BY_STAGE: Partial<Record<PipelineStage, string>> = {
+  INITIAL_CONTACT: "initial_contact_intro",
+  FOLLOW_UP_PENDING: "follow_up",
   SITE_VISIT_SCHEDULED: "site_visit_before",
   SITE_VISIT_COMPLETED: "site_visit_feedback",
+  NEGOTIATION: "negotiation_update",
+  BANK_LOAN: "bank_loan_assist",
   REGISTRATION: "registration_testimonial",
 };
+// Deliberately not auto-messaged: NEW_LEAD (starting state, not something a lead is
+// "moved to"), REQUIREMENT_ANALYSIS/PROPERTY_MATCHING (internal bookkeeping, nothing to
+// tell the client yet), PROPERTY_SHARED (staff send a rich message with real property
+// details via the explicit Send WhatsApp action — an auto-fired generic one here would
+// just duplicate/precede it), SHARED_TO_PARTNER (that message goes to the partner, not
+// the client, via the separate share-to-partner action), LOST_CLOSED (no message wanted
+// on a lost deal).
 
 /**
- * Fire the automated WhatsApp message (if any) tied to a pipeline stage transition:
- * a confirmation before the site visit, a feedback request after it, and a
- * testimonial/referral ask on registration (deal closed). Best-effort — a failed
- * send here must never break the stage-change request that triggered it.
+ * Fire the automated WhatsApp message (if any) tied to a pipeline stage transition —
+ * see TEMPLATE_BY_STAGE above for exactly which stages trigger one and why. Best-effort
+ * — a failed send here must never break the stage-change request that triggered it.
  */
 export async function runStageAutomation(lead: Lead, toStage: PipelineStage, agent: Agent): Promise<void> {
   const templateKey = TEMPLATE_BY_STAGE[toStage];
