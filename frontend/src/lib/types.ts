@@ -18,10 +18,14 @@ export const LEAD_STATUSES = [
 ] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
+// Display/Kanban-column order — a lead moves left to right through its own pipeline;
+// SHARED_TO_PARTNER is the one branch (handed off to a vendor partner instead of being
+// serviced internally), placed right after PROPERTY_MATCHING where that decision is
+// actually made, not after BANK_LOAN where it previously sat.
 export const PIPELINE_STAGES = [
-  "NEW_LEAD", "INITIAL_CONTACT", "REQUIREMENT_ANALYSIS", "PROPERTY_MATCHING",
+  "NEW_LEAD", "INITIAL_CONTACT", "REQUIREMENT_ANALYSIS", "PROPERTY_MATCHING", "SHARED_TO_PARTNER",
   "PROPERTY_SHARED", "FOLLOW_UP_PENDING", "SITE_VISIT_SCHEDULED", "SITE_VISIT_COMPLETED", "NEGOTIATION",
-  "BANK_LOAN", "SHARED_TO_PARTNER", "REGISTRATION", "LOST_CLOSED",
+  "BANK_LOAN", "REGISTRATION", "LOST_CLOSED",
 ] as const;
 export type PipelineStage = (typeof PIPELINE_STAGES)[number];
 
