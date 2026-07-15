@@ -24,6 +24,21 @@ router.get("/templates", async (req, res, next) => {
   }
 });
 
+// CSV export of every template — for handing to a client/stakeholder to review the
+// exact wording (e.g. before submitting the wrapper template to Meta for approval),
+// not for re-import.
+router.get("/templates/export", requireRole(Role.SALES_MANAGER), async (_req, res, next) => {
+  try {
+    const templates = await prisma.whatsAppTemplate.findMany({ orderBy: { name: "asc" } });
+    const csv = toCsv(templates, ["key", "name", "body", "isActive", "createdAt", "updatedAt"]);
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename="whatsapp-templates-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send(csv);
+  } catch (err) {
+    next(err);
+  }
+});
+
 const templateSchema = z.object({
   key: z.string().min(2).regex(/^[a-z0-9_-]+$/, "Use lowercase letters, numbers, - and _"),
   name: z.string().min(2),

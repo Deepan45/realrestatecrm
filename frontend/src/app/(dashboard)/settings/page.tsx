@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api } from "@/lib/api";
+import { api, downloadFile } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Badge, Button, Card, ErrorBanner, Field, Input, Modal, PageHeader, Spinner, Textarea } from "@/components/ui";
-import { SettingsIcon } from "@/components/icons";
+import { DownloadIcon, SettingsIcon } from "@/components/icons";
 import IntegrationsPanel from "@/components/IntegrationsPanel";
 
 interface Template {
@@ -62,6 +62,14 @@ export default function SettingsPage() {
     }
   }
 
+  async function exportTemplates() {
+    try {
+      await downloadFile("/whatsapp/templates/export", `whatsapp-templates-${new Date().toISOString().slice(0, 10)}.csv`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Export failed");
+    }
+  }
+
   async function saveCurrencies() {
     try {
       await api.put("/settings/currencies", { value: currencies.split(",").map((c) => c.trim().toUpperCase()).filter(Boolean) });
@@ -110,10 +118,13 @@ export default function SettingsPage() {
                 <h3 className="text-sm font-semibold">WhatsApp templates</h3>
                 <p className="text-xs text-slate-500">
                   Placeholders: {"{{name}}"}, {"{{agent}}"}, {"{{properties}}"}, {"{{time}}"} (automation templates).
-                  Keys <code className="rounded bg-slate-100 px-1">site_visit_before</code>, <code className="rounded bg-slate-100 px-1">site_visit_feedback</code>, <code className="rounded bg-slate-100 px-1">registration_testimonial</code> fire automatically on stage changes.
+                  Keys <code className="rounded bg-slate-100 px-1">initial_contact_intro</code>, <code className="rounded bg-slate-100 px-1">follow_up</code>, <code className="rounded bg-slate-100 px-1">site_visit_before</code>, <code className="rounded bg-slate-100 px-1">site_visit_feedback</code>, <code className="rounded bg-slate-100 px-1">negotiation_update</code>, <code className="rounded bg-slate-100 px-1">bank_loan_assist</code>, and <code className="rounded bg-slate-100 px-1">registration_testimonial</code> fire automatically on stage changes.
                 </p>
               </div>
-              {canEdit && <Button size="sm" onClick={() => openForm()}>+ New template</Button>}
+              <div className="flex shrink-0 gap-2">
+                <Button variant="secondary" size="sm" onClick={exportTemplates}><DownloadIcon className="mr-1.5 inline h-3.5 w-3.5" />Export CSV</Button>
+                {canEdit && <Button size="sm" onClick={() => openForm()}>+ New template</Button>}
+              </div>
             </div>
             <div className="divide-y divide-slate-100">
               {templates.map((t) => (
