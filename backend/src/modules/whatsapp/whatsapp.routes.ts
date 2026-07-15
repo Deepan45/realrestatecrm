@@ -5,6 +5,8 @@ import { prisma } from "../../lib/prisma";
 import { requireAuth, requireRole } from "../../middleware/auth";
 import { validate } from "../../middleware/validate";
 import { forbidden } from "../../lib/errors";
+import { toCsv } from "../../lib/csv";
+import { audit } from "../../services/audit.service";
 
 const router = Router();
 router.use(requireAuth);
@@ -42,6 +44,42 @@ router.put("/templates/:id", requireRole(Role.SALES_MANAGER), validate(templateS
   try {
     const template = await prisma.whatsAppTemplate.update({ where: { id: req.params.id }, data: req.body });
     res.json({ data: template });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// CSV export of the full message log — same PII-export governance as leads/properties
+// export (Super Admin only), since this carries phone numbers and message content too.
+router.get("/logs/export", requireRole(), async (req, res, next) => {
+  try {
+    const logs = await prisma.whatsAppLog.findMany({
+      include: {
+        lead: { select: { fullName: true } },
+        sentBy: { select: { name: true } },
+        template: { select: { name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    const rows = logs.map((log) => ({
+      createdAt: log.createdAt,
+      leadName: log.lead.fullName,
+      toNumber: log.toNumber,
+      sentBy: log.sentBy.name,
+      // The template's own name already conveys why this was sent (e.g. "Property
+      // shortlist", "Site visit confirmation (auto)") — falling back to whether any
+      // properties were attached for the few sends that used neither a template nor
+      // shared properties (a fully custom, freeform message).
+      purpose: log.template?.name ?? (log.propertyIds.length ? "Property shortlist (custom message)" : "Custom message"),
+      body: log.body,
+      status: log.status,
+      error: log.error ?? "",
+    }));
+    const csv = toCsv(rows, ["createdAt", "leadName", "toNumber", "sentBy", "purpose", "body", "status", "error"]);
+    await audit(req.user!.id, "whatsapp_logs_exported", "whatsapp_log", undefined, { count: logs.length });
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", `attachment; filename="whatsapp-log-${new Date().toISOString().slice(0, 10)}.csv"`);
+    res.send(csv);
   } catch (err) {
     next(err);
   }

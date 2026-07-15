@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { api } from "@/lib/api";
-import { Badge, Card, EmptyState, ErrorBanner, PageHeader, Pagination, Spinner } from "@/components/ui";
-import { MessageCircleIcon } from "@/components/icons";
+import { api, downloadFile } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
+import { Badge, Button, Card, EmptyState, ErrorBanner, PageHeader, Pagination, Spinner } from "@/components/ui";
+import { DownloadIcon, MessageCircleIcon } from "@/components/icons";
 import { fmtDate } from "@/lib/types";
 
 interface WhatsAppLogEntry {
@@ -21,6 +22,7 @@ interface WhatsAppLogEntry {
 }
 
 export default function WhatsAppLogPage() {
+  const { hasRole } = useAuth();
   const [result, setResult] = useState<{ data: WhatsAppLogEntry[]; total: number; page: number; pageSize: number } | null>(null);
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
@@ -37,12 +39,23 @@ export default function WhatsAppLogPage() {
 
   useEffect(load, [load]);
 
+  async function exportCsv() {
+    try {
+      await downloadFile("/whatsapp/logs/export", `whatsapp-log-${new Date().toISOString().slice(0, 10)}.csv`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Export failed");
+    }
+  }
+
   return (
     <div className="space-y-4">
       <PageHeader
         icon={MessageCircleIcon}
         title="WhatsApp Log"
         subtitle="Every message sent from the CRM — property shares, automated stage messages, and partner referrals. Managers see everyone's sends; staff see their own."
+        actions={hasRole() && (
+          <Button variant="secondary" onClick={exportCsv}><DownloadIcon className="mr-1.5 inline h-3.5 w-3.5" />Export CSV</Button>
+        )}
       />
       <ErrorBanner message={error} />
 
