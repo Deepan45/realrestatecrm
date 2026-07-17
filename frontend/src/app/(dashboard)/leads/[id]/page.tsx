@@ -49,6 +49,9 @@ export default function LeadDetailPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [templateKey, setTemplateKey] = useState("property_shortlist");
   const [whatsAppLanguage, setWhatsAppLanguage] = useState<(typeof AI_LANGUAGES)[number]["value"]>("English");
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [sendMode, setSendMode] = useState<"template" | "custom">("template");
+  const [customMessage, setCustomMessage] = useState("");
   const [partners, setPartners] = useState<PartnerCompany[]>([]);
   const [staff, setStaff] = useState<User[]>([]);
   const [noteBody, setNoteBody] = useState("");
@@ -132,11 +135,21 @@ export default function LeadDetailPage() {
   }
 
   async function sendWhatsApp() {
-    if (selected.size === 0) return setActionError("Select at least one property to send");
+    if (sendMode === "custom" && !customMessage.trim() && selected.size === 0) {
+      return setActionError("Write a message or select at least one property");
+    }
+    if (sendMode === "template" && !templateKey && selected.size === 0) {
+      return setActionError("Choose a template or select at least one property");
+    }
     setSending(true);
     await act(
-      () => api.post(`/leads/${id}/send-whatsapp`, { propertyIds: [...selected], templateKey: templateKey || undefined, language: whatsAppLanguage }),
-      () => { setSelected(new Set()); setTab("whatsapp"); },
+      () => api.post(`/leads/${id}/send-whatsapp`, {
+        propertyIds: [...selected],
+        templateKey: sendMode === "template" ? (templateKey || undefined) : undefined,
+        customMessage: sendMode === "custom" ? customMessage.trim() || undefined : undefined,
+        language: whatsAppLanguage,
+      }),
+      () => { setSelected(new Set()); setCustomMessage(""); setShowSendModal(false); setTab("whatsapp"); },
       `WhatsApp message sent to ${lead?.whatsappNumber || lead?.mobile || "the lead"}`
     );
     setSending(false);
@@ -214,6 +227,9 @@ export default function LeadDetailPage() {
                 </Select>
               </div>
             )}
+            <Button onClick={() => setShowSendModal(true)}>
+              <SendIcon className="mr-1.5 inline h-3.5 w-3.5" />Send WhatsApp
+            </Button>
             <Button variant="secondary" onClick={() => setShowEdit(true)}>Edit</Button>
             <Button variant="secondary" onClick={() => setShowShare(true)}>Share to partner</Button>
           </div>
@@ -283,25 +299,13 @@ export default function LeadDetailPage() {
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-semibold">Matching properties</h3>
                 <div className="flex flex-wrap items-center gap-2">
-                  <Select className="w-auto" value={templateKey} onChange={(e) => setTemplateKey(e.target.value)}>
-                    <option value="">No template (auto message)</option>
-                    {templates.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
-                  </Select>
-                  <Select
-                    className="w-auto"
-                    title="Message language"
-                    value={whatsAppLanguage}
-                    onChange={(e) => setWhatsAppLanguage(e.target.value as (typeof AI_LANGUAGES)[number]["value"])}
-                  >
-                    {AI_LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
-                  </Select>
                   <Button variant="secondary" size="sm" onClick={runMatching} disabled={matching}>
                     {matching ? "Matching…" : <><SearchIcon className="mr-1.5 inline h-3.5 w-3.5" />Find matches</>}
                   </Button>
                   {selected.size > 0 && (
                     <>
-                      <Button size="sm" onClick={sendWhatsApp} disabled={sending}>
-                        {sending ? "Sending…" : <><SendIcon className="mr-1.5 inline h-3.5 w-3.5" />Send {selected.size} via WhatsApp</>}
+                      <Button size="sm" onClick={() => setShowSendModal(true)}>
+                        <SendIcon className="mr-1.5 inline h-3.5 w-3.5" />Send {selected.size} via WhatsApp
                       </Button>
                       <Button variant="secondary" size="sm" onClick={() => act(() => api.post(`/leads/${id}/shortlist`, { propertyIds: [...selected] }), undefined, `${selected.size} ${selected.size === 1 ? "property" : "properties"} shortlisted`)}>
                         Save shortlist
@@ -456,6 +460,73 @@ export default function LeadDetailPage() {
       {/* Edit modal */}
       <Modal open={showEdit} onClose={() => setShowEdit(false)} title="Edit lead" wide>
         <LeadForm initial={lead} onSaved={() => { setShowEdit(false); load(); }} onCancel={() => setShowEdit(false)} />
+      </Modal>
+
+      {/* Send WhatsApp modal — the one place to compose a message, whether or not any
+          properties are attached. Property attachment happens via the checkboxes in the
+          Matching properties list; this modal just shows how many are currently picked. */}
+      <Modal open={showSendModal} onClose={() => setShowSendModal(false)} title="Send WhatsApp">
+        <div className="space-y-4">
+          <p className="text-xs text-slate-500">
+            To <span className="font-medium text-slate-700">{lead.whatsappNumber || lead.mobile}</span>
+          </p>
+
+          <div className="flex rounded-lg border border-slate-200 p-0.5 text-sm">
+            <button
+              type="button"
+              className={`flex-1 rounded-md py-1.5 font-medium transition ${sendMode === "template" ? "bg-brand-600 text-white" : "text-slate-500 hover:text-slate-700"}`}
+              onClick={() => setSendMode("template")}
+            >
+              Use a template
+            </button>
+            <button
+              type="button"
+              className={`flex-1 rounded-md py-1.5 font-medium transition ${sendMode === "custom" ? "bg-brand-600 text-white" : "text-slate-500 hover:text-slate-700"}`}
+              onClick={() => setSendMode("custom")}
+            >
+              Write custom message
+            </button>
+          </div>
+
+          {sendMode === "template" ? (
+            <Field label="Template">
+              <Select value={templateKey} onChange={(e) => setTemplateKey(e.target.value)}>
+                <option value="">No template (auto message)</option>
+                {templates.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
+              </Select>
+            </Field>
+          ) : (
+            <Field label="Message">
+              <Textarea rows={4} placeholder="Type your message…" value={customMessage} onChange={(e) => setCustomMessage(e.target.value)} />
+            </Field>
+          )}
+
+          <Field label="Language">
+            <Select value={whatsAppLanguage} onChange={(e) => setWhatsAppLanguage(e.target.value as (typeof AI_LANGUAGES)[number]["value"])}>
+              {AI_LANGUAGES.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+            </Select>
+          </Field>
+
+          <div className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            {selected.size > 0 ? (
+              <span>
+                📎 {selected.size} propert{selected.size === 1 ? "y" : "ies"} attached ·{" "}
+                <button type="button" className="text-brand-600 hover:underline" onClick={() => setSelected(new Set())}>clear</button>
+              </span>
+            ) : (
+              "No properties attached — tick properties in the Matching properties list below to include them."
+            )}
+          </div>
+
+          <ErrorBanner message={actionError} />
+
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowSendModal(false)}>Cancel</Button>
+            <Button onClick={sendWhatsApp} disabled={sending}>
+              {sending ? "Sending…" : <><SendIcon className="mr-1.5 inline h-3.5 w-3.5" />Send</>}
+            </Button>
+          </div>
+        </div>
       </Modal>
 
       {/* Share to partner modal */}
