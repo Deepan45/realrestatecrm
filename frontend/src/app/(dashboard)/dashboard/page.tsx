@@ -41,7 +41,7 @@ function Stat({
 }: { icon: IconType; tone: keyof typeof TONES; label: string; value: string | number; hint?: string; href?: string }) {
   const t = TONES[tone];
   const inner = (
-    <Card className="group relative flex h-full w-full overflow-hidden p-4 transition hover:-translate-y-0.5 hover:shadow-card-hover">
+    <Card className={`group relative flex h-full w-full overflow-hidden p-4 transition ${href ? "hover:-translate-y-0.5 hover:shadow-card-hover" : ""}`}>
       <div className="flex items-start gap-3">
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${t.bg} ring-1 ring-inset ${t.ring}`}>
           <Icon className={`h-5 w-5 ${t.text}`} />
@@ -116,8 +116,8 @@ export default function DashboardPage() {
         <Stat icon={CalendarIcon} tone="amber" label="Follow-ups due" value={data.followUpsDueToday} hint="today" href="/leads?followUpDue=true" />
         <Stat icon={TargetIcon} tone="violet" label="Conversion rate" value={`${data.conversionRate}%`} />
         <Stat icon={BuildingIcon} tone="cyan" label="Properties available" value={data.propertiesAvailable} href="/properties" />
-        <Stat icon={SendIcon} tone="indigo" label="Shared today" value={data.propertiesSharedToday} hint="via WhatsApp" />
-        <Stat icon={MessageCircleIcon} tone="green" label="WhatsApp sent today" value={data.whatsappSentToday} />
+        <Stat icon={SendIcon} tone="indigo" label="Shared today" value={data.propertiesSharedToday} hint="via WhatsApp" href="/whatsapp-log" />
+        <Stat icon={MessageCircleIcon} tone="green" label="WhatsApp sent today" value={data.whatsappSentToday} href="/whatsapp-log" />
         <Stat icon={BriefcaseIcon} tone="fuchsia" label="Partner-shared leads" value={data.partnerSharedLeads} href="/partners" />
       </div>
       <div className="grid gap-4 lg:grid-cols-2">

@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { api, qs } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
+import { useToast } from "@/components/toast";
 import { Button, Card, ErrorBanner, Field, Input, PageHeader, Select, Spinner } from "@/components/ui";
 import {
-  AlertTriangleIcon, BotIcon, DollarSignIcon, FileTextIcon, IconType,
+  AlertTriangleIcon, BotIcon, CopyIcon, DollarSignIcon, FileTextIcon, IconType,
   ScaleIcon, SendIcon, SparklesIcon, TrendingUpIcon, ZapIcon,
 } from "@/components/icons";
 import { AI_LANGUAGES, Lead, Paginated, Property, fmtDate } from "@/lib/types";
@@ -20,7 +21,7 @@ const ACTIONS: { key: ActionKey; icon: IconType; label: string; hint: string }[]
 ];
 
 interface Usage { promptTokens: number; completionTokens: number; totalTokens: number; estimatedCostUsd: number }
-interface ConsoleEntry { role: "user" | "assistant"; text: string; usage?: Usage; error?: boolean }
+interface ConsoleEntry { role: "user" | "assistant"; text: string; usage?: Usage; error?: boolean; leadId?: string; leadName?: string }
 
 function fmtUsd(v: number) {
   if (v === 0) return "$0.00";
@@ -71,6 +72,9 @@ function ConsoleTab() {
   const [language, setLanguage] = useState<(typeof AI_LANGUAGES)[number]["value"]>("English");
   const [busy, setBusy] = useState(false);
   const [entries, setEntries] = useState<ConsoleEntry[]>([]);
+  const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
+  const [sendingIdx, setSendingIdx] = useState<number | null>(null);
+  const toast = useToast();
 
   useEffect(() => {
     api.get<Paginated<Property>>("/properties?pageSize=100&status=AVAILABLE").then((r) => setProperties(r.data)).catch(() => {});
@@ -81,12 +85,12 @@ function ConsoleTab() {
     setEntries((e) => [...e, entry]);
   }
 
-  async function run(path: string, body: unknown, label: string) {
+  async function run(path: string, body: unknown, label: string, leadMeta?: { leadId: string; leadName: string }) {
     setBusy(true);
     push({ role: "user", text: label });
     try {
       const res = await api.post<{ data: { text: string; usage: Usage } }>(`/ai/${path}`, body);
-      push({ role: "assistant", text: res.data.text, usage: res.data.usage });
+      push({ role: "assistant", text: res.data.text, usage: res.data.usage, ...leadMeta });
     } catch (err) {
       push({ role: "assistant", text: err instanceof Error ? err.message : "AI request failed", error: true });
     } finally {
@@ -95,12 +99,36 @@ function ConsoleTab() {
     }
   }
 
+  async function copyEntry(i: number, text: string) {
+    await navigator.clipboard.writeText(text);
+    setCopiedIdx(i);
+    setTimeout(() => setCopiedIdx((c) => (c === i ? null : c)), 1500);
+  }
+
+  async function sendEntryToWhatsApp(i: number, entry: ConsoleEntry) {
+    if (!entry.leadId) return;
+    setSendingIdx(i);
+    try {
+      await api.post(`/leads/${entry.leadId}/send-whatsapp`, { customMessage: entry.text, language });
+      toast(`Sent to ${entry.leadName ?? "client"} on WhatsApp`);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Send failed");
+    } finally {
+      setSendingIdx(null);
+    }
+  }
+
   function generate() {
     if (action === "sales-pitch") {
       if (!propertyId) return;
       const p = properties.find((x) => x.id === propertyId);
       const l = leads.find((x) => x.id === leadId);
-      run("sales-pitch", { propertyId, leadId: leadId || undefined, language }, `Generate a sales pitch for "${p?.title}"${l ? ` for client ${l.fullName}` : ""}`);
+      run(
+        "sales-pitch",
+        { propertyId, leadId: leadId || undefined, language },
+        `Generate a sales pitch for "${p?.title}"${l ? ` for client ${l.fullName}` : ""}`,
+        l ? { leadId: l.id, leadName: l.fullName } : undefined
+      );
     } else if (action === "investment-proposal") {
       if (!propertyId) return;
       const p = properties.find((x) => x.id === propertyId);
@@ -217,10 +245,31 @@ function ConsoleTab() {
                 </div>
                 <div className={`max-w-[80%] rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm shadow-sm ${e.error ? "border border-red-200 bg-red-50 text-red-700" : "border border-slate-200 bg-white text-slate-700"}`}>
                   <p className="whitespace-pre-wrap">{e.text}</p>
-                  {e.usage && (
-                    <p className="mt-2 border-t border-slate-100 pt-1.5 text-[11px] text-slate-400">
-                      {e.usage.totalTokens.toLocaleString()} tokens · {fmtUsd(e.usage.estimatedCostUsd)}
-                    </p>
+                  {!e.error && (
+                    <div className="mt-2 flex items-center gap-2 border-t border-slate-100 pt-1.5">
+                      <button
+                        type="button"
+                        className="flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-brand-600"
+                        onClick={() => copyEntry(i, e.text)}
+                      >
+                        <CopyIcon className="h-3 w-3" /> {copiedIdx === i ? "Copied!" : "Copy"}
+                      </button>
+                      {e.leadId && (
+                        <button
+                          type="button"
+                          disabled={sendingIdx === i}
+                          className="flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-brand-600 disabled:opacity-50"
+                          onClick={() => sendEntryToWhatsApp(i, e)}
+                        >
+                          <SendIcon className="h-3 w-3" /> {sendingIdx === i ? "Sending…" : `Send to ${e.leadName}`}
+                        </button>
+                      )}
+                      {e.usage && (
+                        <span className="ml-auto text-[11px] text-slate-400">
+                          {e.usage.totalTokens.toLocaleString()} tokens · {fmtUsd(e.usage.estimatedCostUsd)}
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
