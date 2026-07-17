@@ -6,7 +6,7 @@ import { AuthProvider } from "@/lib/auth";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "RealRest CRM",
+  title: "Thanjai Property CRM",
   description: "Real estate lead CRM",
 };
 

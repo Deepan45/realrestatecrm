@@ -10,7 +10,7 @@ export interface Branding {
   primaryColor: string | null;
 }
 
-const DEFAULTS: Branding = { appName: "RealRest", tagline: "Real Estate CRM", logoUrl: null, primaryColor: null };
+const DEFAULTS: Branding = { appName: "Thanjai Property", tagline: "Real Estate · Since 2009", logoUrl: null, primaryColor: null };
 
 /** Settings → Branding lets a Super Admin customize the app name, tagline, logo, and
  * accent color shown in the dashboard sidebar (and browser tab) — stored under the

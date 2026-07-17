@@ -8,7 +8,7 @@ import { DownloadIcon, SettingsIcon, UploadCloudIcon } from "@/components/icons"
 import IntegrationsPanel from "@/components/IntegrationsPanel";
 import { applyBrandColor } from "@/lib/brandColor";
 
-const emptyBranding = { appName: "RealRest", tagline: "Real Estate CRM", logoUrl: "", primaryColor: "" };
+const emptyBranding = { appName: "Thanjai Property", tagline: "Real Estate · Since 2009", logoUrl: "", primaryColor: "" };
 
 interface Template {
   id: string;

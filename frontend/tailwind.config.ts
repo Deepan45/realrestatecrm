@@ -5,18 +5,19 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Matches the Thanjai Property logo's terracotta/rust-orange.
         brand: {
-          50: "#f0f4fe",
-          100: "#dde7fd",
-          200: "#c3d3fb",
-          300: "#99b4f8",
-          400: "#678cf2",
-          500: "#4468ec",
-          600: "#2f4ce0",
-          700: "#2839c9",
-          800: "#2531a3",
-          900: "#1e2860",
-          950: "#131a3d",
+          50: "#fef5f1",
+          100: "#fce8de",
+          200: "#f9d4c2",
+          300: "#f5b99e",
+          400: "#ee956d",
+          500: "#e87b4a",
+          600: "#da6834",
+          700: "#c35c2c",
+          800: "#9e4d29",
+          900: "#5f3421",
+          950: "#3d2114",
         },
         gold: {
           300: "#f2d9a0",
