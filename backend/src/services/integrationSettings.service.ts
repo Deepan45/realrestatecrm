@@ -116,7 +116,10 @@ export const SECTION_SCHEMAS = {
  * can't drift out of sync if a section is ever added or renamed. */
 export const INTEGRATION_SECTIONS = Object.keys(SECTION_SCHEMAS) as (keyof IntegrationSettings)[];
 
-const DB_KEY_PREFIX = "integration_";
+// Exported so the generic key-value settings routes can exclude these rows — they hold
+// live third-party secrets and must only ever go out through the masked /integrations
+// endpoints, never the raw dump.
+export const DB_KEY_PREFIX = "integration_";
 
 /** env vars remain the defaults a fresh install starts from — the Settings UI writes
  * overrides into the database, which win once configured. */

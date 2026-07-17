@@ -7,6 +7,7 @@ import { validate } from "../../middleware/validate";
 import { audit } from "../../services/audit.service";
 import { imageUpload, verifyImageContent } from "../../middleware/upload";
 import {
+  DB_KEY_PREFIX,
   INTEGRATION_SECTIONS,
   SECTION_SCHEMAS,
   IntegrationSettings,
@@ -33,11 +34,17 @@ router.get("/branding/public", async (_req, res, next) => {
 
 router.use(requireAuth);
 
-// Key-value settings store (currencies, notification prefs, etc.)
+// Key-value settings store (currencies, branding, notification prefs, etc.) — for any
+// authenticated user regardless of role. Rows under the "integration_" prefix hold live
+// third-party secrets (API keys, webhook secrets) and must never appear here unmasked;
+// those are only ever readable through the masked, Super-Admin-only /integrations
+// endpoints below. This previously leaked every configured secret in plaintext to any
+// logged-in user, including partner-company accounts.
 router.get("/", async (_req, res, next) => {
   try {
     const settings = await prisma.setting.findMany();
-    res.json({ data: Object.fromEntries(settings.map((s) => [s.key, s.value])) });
+    const safe = settings.filter((s) => !s.key.startsWith(DB_KEY_PREFIX));
+    res.json({ data: Object.fromEntries(safe.map((s) => [s.key, s.value])) });
   } catch (err) {
     next(err);
   }
