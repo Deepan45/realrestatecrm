@@ -10,6 +10,7 @@ import { sendEmail } from "../../services/email.service";
 import { audit } from "../../services/audit.service";
 import { env } from "../../config/env";
 import { rateLimitByIp } from "../../lib/rateLimit";
+import { getBrandName } from "../../services/branding.service";
 
 const router = Router();
 
@@ -61,9 +62,10 @@ router.post(
           where: { id: user.id },
           data: { resetToken: token, resetTokenExpiry: new Date(Date.now() + 60 * 60 * 1000) },
         });
+        const brandName = await getBrandName();
         await sendEmail(
           user.email,
-          "Reset your RealRest CRM password",
+          `Reset your ${brandName} CRM password`,
           `<p>Click <a href="${env.appUrl}/reset-password?token=${token}">here</a> to reset your password. The link expires in 1 hour.</p>`
         );
       }

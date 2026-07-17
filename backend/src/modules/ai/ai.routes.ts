@@ -6,6 +6,7 @@ import { badRequest, forbidden, notFound } from "../../lib/errors";
 import { AuthUser, requireAuth, requireRole } from "../../middleware/auth";
 import { validate } from "../../middleware/validate";
 import { askAI } from "../../services/openai.service";
+import { getBrandName } from "../../services/branding.service";
 
 const router = Router();
 router.use(requireAuth);
@@ -56,16 +57,19 @@ function leadBlock(l: Awaited<ReturnType<typeof getLead>>) {
   ].filter(Boolean).join("\n");
 }
 
-const SYSTEM_PROMPT =
-  "You are an AI assistant embedded in RealRest, a real estate CRM used by sales staff in Tamil Nadu, India. " +
-  "Write in clear, professional English. Prices are in Indian Rupees (INR) using lakh/crore-friendly phrasing where natural. " +
-  "Never invent property or client facts beyond what is given in the context — if information is missing, note that plainly. " +
-  "Respect any length limit given exactly — do not run over it. Do not use markdown headers (#, ##, ###), horizontal " +
-  "rules (---), tables, or a letter-style greeting/signature (no 'Dear...', no 'Best regards' block) unless the task " +
-  "explicitly asks for a formal document — plain paragraphs and simple emoji are enough. This text is often sent " +
-  "directly as a WhatsApp message: for emphasis use WhatsApp's own formatting — a single asterisk *like this* for " +
-  "bold and a single underscore _like this_ for italic. Never use double asterisks **like this**, double underscores, " +
-  "or any other markdown syntax — WhatsApp does not render it and it would show up as literal stray punctuation.";
+function buildSystemPrompt(brandName: string) {
+  return (
+    `You are an AI assistant embedded in ${brandName}, a real estate CRM used by sales staff in Tamil Nadu, India. ` +
+    "Write in clear, professional English. Prices are in Indian Rupees (INR) using lakh/crore-friendly phrasing where natural. " +
+    "Never invent property or client facts beyond what is given in the context — if information is missing, note that plainly. " +
+    "Respect any length limit given exactly — do not run over it. Do not use markdown headers (#, ##, ###), horizontal " +
+    "rules (---), tables, or a letter-style greeting/signature (no 'Dear...', no 'Best regards' block) unless the task " +
+    "explicitly asks for a formal document — plain paragraphs and simple emoji are enough. This text is often sent " +
+    "directly as a WhatsApp message: for emphasis use WhatsApp's own formatting — a single asterisk *like this* for " +
+    "bold and a single underscore _like this_ for italic. Never use double asterisks **like this**, double underscores, " +
+    "or any other markdown syntax — WhatsApp does not render it and it would show up as literal stray punctuation."
+  );
+}
 
 // Languages relevant to the CRM's Tamil Nadu / South India market — sent as a plain
 // instruction rather than a locale code since the model handles that better than we'd
@@ -81,7 +85,7 @@ async function runAi(user: AuthUser, feature: string, prompt: string, language?:
       ? `${prompt}\n\nRespond entirely in ${language} (native script, not transliterated English) — every part of the reply, not just a summary line.`
       : prompt;
   const { text, usage, model } = await askAI([
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: buildSystemPrompt(await getBrandName()) },
     { role: "user", content: fullPrompt },
   ]);
   prisma.aiUsageLog

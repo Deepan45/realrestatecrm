@@ -1,5 +1,6 @@
 import { MessageStatus } from "@prisma/client";
 import { WhatsAppSettings, getIntegrationSettings } from "./integrationSettings.service";
+import { getBrandName } from "./branding.service";
 
 export interface SendResult {
   status: MessageStatus;
@@ -141,7 +142,7 @@ class SmartPingProvider implements WhatsAppProvider {
           campaignName: this.settings.smartpingCampaignName,
           destination,
           userName: contactName || "Customer",
-          source: "RealRest CRM",
+          source: `${await getBrandName()} CRM`,
           templateParams: [templateParam],
           // Actually attaches the property photo instead of just a text link — but this
           // only takes effect if the approved WhatsApp template has an Image header

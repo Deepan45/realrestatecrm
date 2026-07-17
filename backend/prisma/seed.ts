@@ -62,7 +62,7 @@ async function main() {
     {
       key: "welcome",
       name: "Welcome message",
-      body: "Hi {{name}}! 👋 Thank you for your interest. I'm {{agent}} from RealRest. I'll help you find the right property for your requirements. When is a good time to talk?",
+      body: "Hi {{name}}! 👋 Thank you for your interest. I'm {{agent}} from Thanjai Property. I'll help you find the right property for your requirements. When is a good time to talk?",
     },
     {
       key: "property_shortlist",
@@ -88,7 +88,7 @@ async function main() {
     {
       key: "initial_contact_intro",
       name: "Initial contact intro (auto)",
-      body: "Hi {{name}}! 👋 I'm {{agent}} from RealRest, following up on your enquiry. I'd love to understand your requirements better — what are you looking for?",
+      body: "Hi {{name}}! 👋 I'm {{agent}} from Thanjai Property, following up on your enquiry. I'd love to understand your requirements better — what are you looking for?",
     },
     {
       key: "site_visit_before",

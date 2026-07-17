@@ -22,6 +22,7 @@ import { requireWebhookSecret, verifyMetaSignature } from "../../lib/webhookAuth
 import { rateLimitByIp } from "../../lib/rateLimit";
 import { env } from "../../config/env";
 import { getIntegrationSettings } from "../../services/integrationSettings.service";
+import { getBrandName } from "../../services/branding.service";
 import { AuthUser, requireAuth, requireRole, salesTeam } from "../../middleware/auth";
 import { validate } from "../../middleware/validate";
 import { fileUpload } from "../../middleware/upload";
@@ -1042,10 +1043,11 @@ router.post("/:id/share-partner", validate(sharePartnerSchema), async (req, res,
         take: 5,
       });
       const clientUrl = env.clientUrl;
+      const brandName = await getBrandName();
       const money = (v: unknown) => Number(v).toLocaleString("en-IN");
       // Requirement only — client contact details stay inside the CRM
       const lines: string[] = [
-        `🤝 *New lead referral from RealRest*`,
+        `🤝 *New lead referral from ${brandName}*`,
         `👤 ${lead.fullName}`,
         `📍 ${[lead.preferredArea, lead.city].filter(Boolean).join(", ") || "Location not specified"}`,
         `🏠 ${lead.propertyType ?? "Any type"}${lead.bedrooms != null ? ` · ${lead.bedrooms}BR` : ""}`,
