@@ -1,11 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { api, downloadFile } from "@/lib/api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { api, downloadFile, resolveMediaUrl } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { Badge, Button, Card, ErrorBanner, Field, Input, Modal, PageHeader, Spinner, Textarea } from "@/components/ui";
-import { DownloadIcon, SettingsIcon } from "@/components/icons";
+import { DownloadIcon, SettingsIcon, UploadCloudIcon } from "@/components/icons";
 import IntegrationsPanel from "@/components/IntegrationsPanel";
+import { applyBrandColor } from "@/lib/brandColor";
+
+const emptyBranding = { appName: "RealRest", tagline: "Real Estate CRM", logoUrl: "", primaryColor: "" };
 
 interface Template {
   id: string;
@@ -28,13 +31,18 @@ export default function SettingsPage() {
   const [editing, setEditing] = useState<Template | null>(null);
   const [form, setForm] = useState({ ...emptyTemplate });
   const [busy, setBusy] = useState(false);
-  const [tab, setTab] = useState<"templates" | "integrations">("templates");
+  const [tab, setTab] = useState<"templates" | "branding" | "integrations">("templates");
+  const [branding, setBranding] = useState({ ...emptyBranding });
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => {
     api.get<{ data: Template[] }>("/whatsapp/templates").then((r) => setTemplates(r.data)).catch((e) => setError(e.message));
     api.get<{ data: Record<string, unknown> }>("/settings").then((r) => {
       const c = r.data.currencies;
       if (Array.isArray(c)) setCurrencies(c.join(", "));
+      const b = r.data.branding as Partial<typeof emptyBranding> | undefined;
+      if (b && typeof b === "object") setBranding({ ...emptyBranding, ...b });
     }).catch(() => {});
   }, []);
 
@@ -80,6 +88,34 @@ export default function SettingsPage() {
     }
   }
 
+  async function saveBranding(next = branding) {
+    try {
+      await api.put("/settings/branding", { value: next });
+      applyBrandColor(next.primaryColor || null);
+      setSaved("Branding updated");
+      setTimeout(() => setSaved(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Save failed");
+    }
+  }
+
+  async function uploadLogo(file: File) {
+    setLogoUploading(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("logo", file);
+      const res = await api.post<{ url: string }>("/settings/branding/logo", fd);
+      const next = { ...branding, logoUrl: res.url };
+      setBranding(next);
+      await saveBranding(next);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Logo upload failed");
+    } finally {
+      setLogoUploading(false);
+    }
+  }
+
   if (!templates) return <Spinner />;
 
   return (
@@ -94,7 +130,7 @@ export default function SettingsPage() {
 
       {hasRole() && (
         <div className="flex gap-1 border-b border-slate-200">
-          {([["templates", "Templates & Currencies"], ["integrations", "Integrations"]] as const).map(([key, label]) => (
+          {([["templates", "Templates & Currencies"], ["branding", "Branding"], ["integrations", "Integrations"]] as const).map(([key, label]) => (
             <button
               key={key}
               onClick={() => setTab(key)}
@@ -110,6 +146,65 @@ export default function SettingsPage() {
 
       {tab === "integrations" && hasRole() ? (
         <IntegrationsPanel />
+      ) : tab === "branding" && hasRole() ? (
+        <Card className="max-w-lg p-4">
+          <h3 className="mb-1 text-sm font-semibold">App branding</h3>
+          <p className="mb-4 text-xs text-slate-500">Shown in the sidebar and browser tab for every user.</p>
+          <div className="space-y-4">
+            <Field label="Application name">
+              <Input value={branding.appName} onChange={(e) => setBranding((b) => ({ ...b, appName: e.target.value }))} />
+            </Field>
+            <Field label="Tagline">
+              <Input value={branding.tagline} onChange={(e) => setBranding((b) => ({ ...b, tagline: e.target.value }))} />
+            </Field>
+            <Field label="Logo">
+              <div className="flex items-center gap-3">
+                {branding.logoUrl ? (
+                  <img src={resolveMediaUrl(branding.logoUrl)} alt="Logo" className="h-12 w-12 rounded-xl object-cover ring-1 ring-slate-200" />
+                ) : (
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 font-bold text-white">
+                    {branding.appName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <input ref={logoRef} type="file" accept=".jpg,.jpeg,.png,.webp,.gif" className="hidden" onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])} />
+                <Button variant="secondary" size="sm" disabled={logoUploading} onClick={() => logoRef.current?.click()}>
+                  <UploadCloudIcon className="mr-1.5 inline h-3.5 w-3.5" />{logoUploading ? "Uploading…" : "Upload logo"}
+                </Button>
+                {branding.logoUrl && (
+                  <button
+                    type="button"
+                    className="text-xs text-slate-500 hover:text-red-600 hover:underline"
+                    onClick={() => { const next = { ...branding, logoUrl: "" }; setBranding(next); saveBranding(next); }}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            </Field>
+            <Field label="Primary color">
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={branding.primaryColor || "#2f4ce0"}
+                  onChange={(e) => setBranding((b) => ({ ...b, primaryColor: e.target.value }))}
+                  className="h-9 w-12 shrink-0 cursor-pointer rounded-md border border-slate-200"
+                />
+                <Input
+                  value={branding.primaryColor}
+                  onChange={(e) => setBranding((b) => ({ ...b, primaryColor: e.target.value }))}
+                  placeholder="Default blue"
+                  className="w-32"
+                />
+                {branding.primaryColor && (
+                  <button type="button" className="text-xs text-slate-500 hover:text-red-600 hover:underline" onClick={() => setBranding((b) => ({ ...b, primaryColor: "" }))}>
+                    Reset to default
+                  </button>
+                )}
+              </div>
+            </Field>
+            <Button onClick={() => saveBranding()}>Save branding</Button>
+          </div>
+        </Card>
       ) : (
         <>
           <Card>

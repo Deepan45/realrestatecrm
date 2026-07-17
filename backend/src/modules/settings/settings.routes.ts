@@ -5,6 +5,7 @@ import { badRequest } from "../../lib/errors";
 import { requireAuth, requireRole } from "../../middleware/auth";
 import { validate } from "../../middleware/validate";
 import { audit } from "../../services/audit.service";
+import { imageUpload, verifyImageContent } from "../../middleware/upload";
 import {
   INTEGRATION_SECTIONS,
   SECTION_SCHEMAS,
@@ -28,6 +29,24 @@ router.get("/", async (_req, res, next) => {
     next(err);
   }
 });
+
+// Logo upload for the "branding" setting key — a plain file, not JSON, so it needs its
+// own multipart endpoint; the frontend then PUTs the returned URL into branding.logoUrl
+// via the generic /settings/:key route below.
+router.post(
+  "/branding/logo",
+  requireRole(),
+  imageUpload.single("logo"),
+  verifyImageContent,
+  async (req, res, next) => {
+    try {
+      if (!req.file) throw badRequest("No logo uploaded (field name: logo)");
+      res.status(201).json({ url: `/uploads/${req.file.filename}` });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 // ── Integrations (WhatsApp, OpenAI, Meta Lead Ads, website sync, lead webhooks) ──
 // Super Admin only — these are third-party credentials, not general workspace prefs.

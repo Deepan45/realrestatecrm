@@ -4,10 +4,12 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
-import { api } from "@/lib/api";
+import { api, resolveMediaUrl } from "@/lib/api";
 import { Spinner } from "@/components/ui";
 import { ToastProvider } from "@/components/toast";
 import { fmtDate } from "@/lib/types";
+import { useBranding } from "@/lib/useBranding";
+import { applyBrandColor } from "@/lib/brandColor";
 import {
   BellIcon,
   BriefcaseIcon,
@@ -80,10 +82,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unread, setUnread] = useState(0);
   const [searchValue, setSearchValue] = useState("");
+  const branding = useBranding();
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
   }, [loading, user, router]);
+
+  useEffect(() => {
+    document.title = `${branding.appName} CRM`;
+    applyBrandColor(branding.primaryColor);
+    return () => applyBrandColor(null);
+  }, [branding.appName, branding.primaryColor]);
 
   useEffect(() => {
     if (!user) return;
@@ -130,12 +139,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         className={`fixed inset-y-0 left-0 z-40 flex w-60 transform flex-col bg-gradient-to-b from-slate-900 to-slate-950 transition-transform lg:static lg:translate-x-0 ${menuOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <div className="flex h-16 items-center gap-2.5 border-b border-white/10 px-4">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 font-bold text-white shadow-lg shadow-brand-900/50 ring-1 ring-white/20">
-            R
-          </div>
-          <div className="leading-tight">
-            <div className="font-semibold tracking-tight text-white">RealRest</div>
-            <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-gold-400">Real Estate CRM</div>
+          {branding.logoUrl ? (
+            <img src={resolveMediaUrl(branding.logoUrl)} alt={branding.appName} className="h-9 w-9 shrink-0 rounded-xl object-cover ring-1 ring-white/20" />
+          ) : (
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 font-bold text-white shadow-lg shadow-brand-900/50 ring-1 ring-white/20">
+              {branding.appName.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div className="min-w-0 leading-tight">
+            <div className="truncate font-semibold tracking-tight text-white">{branding.appName}</div>
+            <div className="truncate text-[10px] font-medium uppercase tracking-[0.18em] text-gold-400">{branding.tagline}</div>
           </div>
         </div>
         <nav className="flex-1 space-y-4 overflow-y-auto p-3">
