@@ -60,12 +60,21 @@ export default function LeadDetailPage() {
   const [showShare, setShowShare] = useState(false);
   const [shareForm, setShareForm] = useState({ partnerId: "", notesShared: "", sendWhatsApp: true });
   const [sending, setSending] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
   const isPartner = user?.role === "PARTNER_USER";
   // Partners only get the partner-share history; internal tabs would always be empty for them
   const [tab, setTab] = useState<"timeline" | "whatsapp" | "partners" | "pipeline">(isPartner ? "partners" : "timeline");
 
-  const load = useCallback(() => {
-    api.get<{ data: LeadDetail }>(`/leads/${id}`).then((res) => setLead(res.data)).catch((e) => setError(e.message));
+  const load = useCallback(async () => {
+    try {
+      const res = await api.get<{ data: LeadDetail }>(`/leads/${id}`);
+      setLead(res.data);
+      setError(null);
+      return res.data;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load lead");
+      return null;
+    }
   }, [id]);
 
   useEffect(() => {
@@ -124,13 +133,16 @@ export default function LeadDetailPage() {
 
   async function act(fn: () => Promise<unknown>, after?: () => void, successMessage?: string) {
     setActionError(null);
+    setActionBusy(true);
     try {
       await fn();
-      load();
+      await load();
       after?.();
       if (successMessage) toast(successMessage);
     } catch (e) {
       setActionError(e instanceof Error ? e.message : "Action failed");
+    } finally {
+      setActionBusy(false);
     }
   }
 
@@ -203,6 +215,7 @@ export default function LeadDetailPage() {
               className="w-auto"
               title="Stages marked ✉ send an automated WhatsApp to the client"
               value={lead.stage}
+              disabled={actionBusy}
               onChange={(e) => act(() => api.post(`/leads/${id}/change-stage`, { stage: e.target.value }), undefined, `Stage updated to ${labelize(e.target.value)}`)}
             >
               {PIPELINE_STAGES.map((s) => (
@@ -219,6 +232,7 @@ export default function LeadDetailPage() {
                 <Select
                   className="w-auto"
                   value={lead.assignedToId ?? ""}
+                  disabled={actionBusy}
                   onChange={(e) => e.target.value && act(() => api.post(`/leads/${id}/assign`, { assignedToId: e.target.value, expectedAssignedToId: lead.assignedToId }), undefined, `Lead assigned to ${staff.find((s) => s.id === e.target.value)?.name ?? "staff member"}`)}
                   title={hasRole("SALES_MANAGER") ? "Assign to a staff member" : "Transfer this lead to a peer"}
                 >
@@ -263,10 +277,10 @@ export default function LeadDetailPage() {
                 <Input type="datetime-local" value={followUpAt} onChange={(e) => setFollowUpAt(e.target.value)} />
                 <Button
                   size="sm"
-                  disabled={!followUpAt}
+                  disabled={!followUpAt || actionBusy}
                   onClick={() => act(() => api.post(`/leads/${id}/follow-up`, { followUpAt }), () => setFollowUpAt(""), "Follow-up scheduled")}
                 >
-                  Set
+                  {actionBusy ? "Saving…" : "Set"}
                 </Button>
               </div>
             </Card>
@@ -277,8 +291,8 @@ export default function LeadDetailPage() {
             <div className="mb-3 flex gap-2">
               <Textarea rows={2} placeholder="Add an internal note…" value={noteBody} onChange={(e) => setNoteBody(e.target.value)} />
             </div>
-            <Button size="sm" disabled={!noteBody.trim()} onClick={() => act(() => api.post(`/leads/${id}/add-note`, { body: noteBody }), () => setNoteBody(""), "Note added")}>
-              Add note
+            <Button size="sm" disabled={!noteBody.trim() || actionBusy} onClick={() => act(() => api.post(`/leads/${id}/add-note`, { body: noteBody }), () => setNoteBody(""), "Note added")}>
+              {actionBusy ? "Saving…" : "Add note"}
             </Button>
             <div className="mt-3 space-y-2">
               {lead.notes.map((n) => (
@@ -341,14 +355,28 @@ export default function LeadDetailPage() {
               )}
 
               {propertyList.map((m) => (
-                <label
+                <div
                   key={m.property.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => toggleSelect(m.property.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === " " || e.key === "Enter") {
+                      e.preventDefault();
+                      toggleSelect(m.property.id);
+                    }
+                  }}
                   className={`mb-2 flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition ${selected.has(m.property.id) ? "border-brand-500 bg-brand-50" : "border-slate-200 hover:border-slate-300"}`}
                 >
                   <input
                     type="checkbox"
                     checked={selected.has(m.property.id)}
-                    onChange={() => toggleSelect(m.property.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSelect(m.property.id);
+                    }}
+                    onChange={() => {}}
+                    className="h-4 w-4 shrink-0"
                   />
                   {m.property.images?.[0] ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -370,7 +398,7 @@ export default function LeadDetailPage() {
                     </div>
                     <div className="text-[10px] uppercase text-slate-400">{m.score > 0 ? "match" : "manual"}</div>
                   </div>
-                </label>
+                </div>
               ))}
             </Card>
           )}

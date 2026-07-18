@@ -12,13 +12,17 @@ interface Props {
   onCancel: () => void;
 }
 
-// Letters, spaces, and the handful of punctuation marks real names/places use (O'Brien, St. Anne's).
-const NAME_CHARS = /[^a-zA-Z\s'.-]/g;
+// Letters, digits, spaces, and the handful of punctuation marks real names use (O'Brien, St. Anne's, campaign suffixes).
+const PERSON_NAME_CHARS = /[^a-zA-Z0-9\s'.-]/g;
+const PLACE_NAME_CHARS = /[^a-zA-Z\s'.-]/g;
 // Digits plus the punctuation a phone number is actually written with.
 const PHONE_CHARS = /[^\d+\s().-]/g;
 
 function sanitizeName(v: string) {
-  return v.replace(NAME_CHARS, "");
+  return v.replace(PERSON_NAME_CHARS, "");
+}
+function sanitizePlace(v: string) {
+  return v.replace(PLACE_NAME_CHARS, "");
 }
 function sanitizePhone(v: string) {
   return v.replace(PHONE_CHARS, "");
@@ -123,10 +127,10 @@ export default function LeadForm({ initial, onSaved, onCancel }: Props) {
           <Input type="email" value={form.email ?? ""} onChange={(e) => set("email", e.target.value)} />
         </Field>
         <Field label="Country" error={fieldErrors.country}>
-          <Input value={form.country ?? ""} onChange={(e) => set("country", sanitizeName(e.target.value))} />
+          <Input value={form.country ?? ""} onChange={(e) => set("country", sanitizePlace(e.target.value))} />
         </Field>
         <Field label="City" error={fieldErrors.city}>
-          <Input value={form.city ?? ""} onChange={(e) => set("city", sanitizeName(e.target.value))} />
+          <Input value={form.city ?? ""} onChange={(e) => set("city", sanitizePlace(e.target.value))} />
         </Field>
       </div>
       <h4 className="border-b border-slate-100 pb-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">Requirement</h4>

@@ -83,6 +83,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [unread, setUnread] = useState(0);
   const [searchValue, setSearchValue] = useState("");
   const branding = useBranding();
+  const trimmedSearch = searchValue.trim();
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
@@ -203,7 +204,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <form
             onSubmit={(e) => {
               e.preventDefault();
-              if (searchValue.trim()) router.push(`/leads?q=${encodeURIComponent(searchValue.trim())}`);
+              if (!trimmedSearch) return;
+              router.push(`/leads?q=${encodeURIComponent(trimmedSearch)}`);
+              setSearchValue("");
             }}
             className="flex max-w-sm flex-1 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm text-slate-500 transition focus-within:border-brand-400 focus-within:bg-white focus-within:ring-2 focus-within:ring-brand-500/15"
           >
@@ -214,6 +217,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               placeholder="Search leads…"
               className="w-full bg-transparent text-slate-700 outline-none placeholder:text-slate-400"
             />
+            <button type="submit" className="sr-only" disabled={!trimmedSearch}>Search</button>
           </form>
           <div className="hidden items-center gap-1.5 text-sm text-slate-500 xl:flex">
             <CalendarIcon className="h-4 w-4" />

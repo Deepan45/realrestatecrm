@@ -1,18 +1,19 @@
 import { z } from "zod";
 import { LeadSource, LeadStatus, PipelineStage, Priority, PropertyType } from "@prisma/client";
 
-// Letters, spaces, and the handful of punctuation marks real names/places use (O'Brien, St. Anne's).
-const namePattern = /^[a-zA-Z\s'.-]+$/;
+// Letters, digits, spaces, and the handful of punctuation marks real names use (O'Brien, St. Anne's, campaign suffixes).
+const personNamePattern = /^[a-zA-Z0-9\s'.-]+$/;
+const placeNamePattern = /^[a-zA-Z\s'.-]+$/;
 // Digits plus the punctuation a phone number is actually written with.
 const phonePattern = /^[\d+\s().-]{5,}$/;
 
 export const createLeadSchema = z.object({
-  fullName: z.string().min(2).regex(namePattern, "Name cannot contain numbers or special characters"),
+  fullName: z.string().min(2).regex(personNamePattern, "Name cannot contain unsupported special characters"),
   mobile: z.string().min(5).regex(phonePattern, "Enter a valid phone number"),
   whatsappNumber: z.string().regex(phonePattern, "Enter a valid phone number").optional().nullable().or(z.literal("")),
   email: z.string().email().optional().nullable().or(z.literal("")),
-  country: z.string().regex(namePattern, "Country cannot contain numbers").optional().nullable().or(z.literal("")),
-  city: z.string().regex(namePattern, "City cannot contain numbers").optional().nullable().or(z.literal("")),
+  country: z.string().regex(placeNamePattern, "Country cannot contain numbers").optional().nullable().or(z.literal("")),
+  city: z.string().regex(placeNamePattern, "City cannot contain numbers").optional().nullable().or(z.literal("")),
   preferredArea: z.string().optional().nullable(),
   budgetMin: z.coerce.number().nonnegative().optional().nullable(),
   budgetMax: z.coerce.number().nonnegative().optional().nullable(),

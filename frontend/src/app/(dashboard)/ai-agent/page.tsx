@@ -20,6 +20,13 @@ const ACTIONS: { key: ActionKey; icon: IconType; label: string; hint: string }[]
   { key: "agreement-draft", icon: ScaleIcon, label: "Sale Agreement Draft", hint: "Preliminary — needs legal review" },
 ];
 
+const ACTION_PROMPTS: Record<ActionKey, string> = {
+  "sales-pitch": "Generate a WhatsApp-ready sales pitch for the selected property and client.",
+  "investment-proposal": "Create a one-page investment proposal for the selected property.",
+  "price-predictor": "Predict the market price for a property using location, type, bedrooms, and area.",
+  "agreement-draft": "Draft a preliminary sale agreement for the selected property and buyer.",
+};
+
 interface Usage { promptTokens: number; completionTokens: number; totalTokens: number; estimatedCostUsd: number }
 interface ConsoleEntry { role: "user" | "assistant"; text: string; usage?: Usage; error?: boolean; leadId?: string; leadName?: string }
 
@@ -165,7 +172,11 @@ function ConsoleTab() {
           {ACTIONS.map((a) => (
             <button
               key={a.key}
-              onClick={() => setAction(action === a.key ? null : a.key)}
+              onClick={() => {
+                const next = action === a.key ? null : a.key;
+                setAction(next);
+                if (next) setQuery(ACTION_PROMPTS[next]);
+              }}
               className={`flex w-full items-start gap-2.5 rounded-xl border px-3 py-2.5 text-left transition ${
                 action === a.key
                   ? "border-brand-300 bg-brand-50 ring-1 ring-inset ring-brand-200"

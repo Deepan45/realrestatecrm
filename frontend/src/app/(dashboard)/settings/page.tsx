@@ -37,7 +37,11 @@ export default function SettingsPage() {
   const logoRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() => {
-    api.get<{ data: Template[] }>("/whatsapp/templates").then((r) => setTemplates(r.data)).catch((e) => setError(e.message));
+    setError(null);
+    api.get<{ data: Template[] }>("/whatsapp/templates").then((r) => setTemplates(r.data)).catch((e) => {
+      setTemplates([]);
+      setError(e instanceof Error ? e.message : "Could not load WhatsApp templates");
+    });
     api.get<{ data: Record<string, unknown> }>("/settings").then((r) => {
       const c = r.data.currencies;
       if (Array.isArray(c)) setCurrencies(c.join(", "));
